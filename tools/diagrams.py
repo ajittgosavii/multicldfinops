@@ -29,9 +29,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "diagrams")
 
 # Light theme, matching tools/build_deck.py
+# Text colour is contrast-first. The old BODY/MUTED pair measured 8.1:1 and
+# 3.7:1 on white; MUTED is used for every sub-label, caption and footer, and
+# 3.7:1 is below the WCAG AA floor of 4.5:1 -- legible on a laptop, not on a
+# projector in a lit room. Now 11.5:1 and 7.3:1, with the three-level
+# hierarchy (18.3 / 11.5 / 7.3) intact. `tests` assert these ratios.
 INK = "#0B142A"
-BODY = "#445066"
-MUTED = "#7A8599"
+BODY = "#2E3A4E"
+MUTED = "#4E5766"
 RULE = "#E2E7EF"
 PAPER = "#FFFFFF"
 WASH = "#F5F8FC"

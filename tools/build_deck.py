@@ -43,9 +43,14 @@ from pptx.util import Emu, Inches, Pt  # noqa: E402
 
 W, H = Inches(13.333), Inches(7.5)  # 16:9
 
+# Text colour is contrast-first. The old BODY/MUTED pair measured 8.1:1 and
+# 3.7:1 on white; MUTED is used for every sub-label, caption and footer, and
+# 3.7:1 is below the WCAG AA floor of 4.5:1 -- legible on a laptop, not on a
+# projector in a lit room. Now 11.5:1 and 7.3:1, with the three-level
+# hierarchy (18.3 / 11.5 / 7.3) intact. `tests` assert these ratios.
 INK = RGBColor(0x0B, 0x14, 0x2A)
-BODY = RGBColor(0x44, 0x50, 0x66)
-MUTED = RGBColor(0x7A, 0x85, 0x99)
+BODY = RGBColor(0x2E, 0x3A, 0x4E)
+MUTED = RGBColor(0x4E, 0x57, 0x66)
 RULE = RGBColor(0xE2, 0xE7, 0xEF)
 PAPER = RGBColor(0xFF, 0xFF, 0xFF)
 WASH = RGBColor(0xF5, 0xF8, 0xFC)
