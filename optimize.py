@@ -67,7 +67,7 @@ class Lever:
     source_url: str
 
 
-ALL = ("AWS", "Azure", "GCP")
+ALL = ("AWS", "Azure", "GCP", "OCI")
 
 LEVERS: List[Lever] = [
     # ---- Rate optimization ------------------------------------------------
@@ -151,6 +151,42 @@ LEVERS: List[Lever] = [
           "ARM-compatible build/runtime",
           "x86 compute SKUs with a Google Axion equivalent.",
           "https://cloud.google.com/products/compute/axion"),
+    Lever("R17", "OCI Annual Universal Credits", "Rate", ("OCI",), 0.10, 0.30,
+          "Low", "Low", "Weeks",
+          "Annual spend commitment across the tenancy; discount is negotiated, not published",
+          "Commitment-eligible Standard usage with no CommitmentDiscountId; commit to the sustained floor.",
+          "https://www.oracle.com/cloud/pricing/"),
+    Lever("R18", "OCI Ampere A1 (Arm) Compute", "Rate", ("OCI",), 0.10, 0.40,
+          "Medium", "Medium", "Weeks",
+          "ARM-compatible build/runtime",
+          "x86 compute shapes with an Ampere A1 equivalent.",
+          "https://www.oracle.com/cloud/compute/arm/"),
+    # Genuinely Oracle-specific: this one does not reduce the cloud bill at all.
+    # It accrues a credit against the *Oracle technology support* invoice, which
+    # is a different budget line and often a different owner. We surface it as a
+    # lever because the money is real; we do NOT net it off cloud spend, and the
+    # detector never fires on bill data alone -- nothing in FOCUS knows what you
+    # pay Oracle for support.
+    Lever("R19", "Oracle Support Rewards", "Rate", ("OCI",), 0.25, 0.33,
+          "Low", "Low", "Months",
+          "An Oracle technology support contract to offset; earns $0.25 per $1 of OCI spend ($0.33 with a ULA)",
+          "Not detectable from the bill -- requires the Oracle support invoice. Modelled, never auto-detected.",
+          "https://www.oracle.com/cloud/support-rewards/"),
+    Lever("R20", "BYOL to OCI for Oracle Database", "Rate", ("OCI",), 0.30, 0.76,
+          "Low", "Low", "Hours",
+          "Existing Oracle Database licences with active support",
+          "license-included database SKUs where a licence you already own could be applied.",
+          "https://www.oracle.com/cloud/economics/"),
+    # Provider-neutral, and the only lever the commitment-WASTE detector uses.
+    # Unused commitment is money already burned; the action is to re-shape or
+    # let the term lapse, never to buy more. Attributing it to R1/R5/R7 ("buy a
+    # Savings Plan") said the opposite. It also has to work for a cloud we have
+    # never met, which a per-cloud lever cannot.
+    Lever("R21", "Commitment utilization & re-shape", "Rate", ALL, 0.00, 1.00,
+          "Medium", "Low", "Weeks",
+          "Visibility of commitment utilization by term and instrument",
+          "Usage rows with CommitmentDiscountStatus == 'Unused'. Not an estimate -- the bill states it.",
+          "https://www.finops.org/framework/capabilities/rate-optimization/"),
     # ---- Usage optimization -----------------------------------------------
     Lever("U1", "Compute rightsizing", "Usage", ALL, 0.20, 0.40,
           "Medium", "Medium", "Days",
@@ -252,6 +288,11 @@ LEVERS: List[Lever] = [
           "Representative invocation profile",
           "Functions on a memory setting far from their cost/perf optimum.",
           "https://github.com/alexcasalboni/aws-lambda-power-tuning"),
+    Lever("U21", "OCI Object Storage Infrequent Access / Archive", "Usage", ("OCI",), 0.30, 0.50,
+          "Low", "Low", "Days",
+          "Object access-pattern telemetry",
+          "Standard-tier objects with cold access.",
+          "https://docs.oracle.com/en-us/iaas/Content/Object/Concepts/understandingstoragetiers.htm"),
     # ---- Architecture -----------------------------------------------------
     Lever("C1", "Provisioned -> serverless DB", "Architecture", ALL, 0.30, 0.90,
           "High", "Medium", "Months",
@@ -367,13 +408,49 @@ class Opportunity:
     resource_ids: tuple = ()
 
 
-# Cloud-specific fractional discount rates (mirror connectors.demo so the demo
-# numbers reconcile; these are also representative of published list discounts).
-_COMMITMENT_RATE = {"AWS": 0.31, "Azure": 0.34, "GCP": 0.28}
-_SPOT_DISCOUNT = {"AWS": 0.72, "Azure": 0.68, "GCP": 0.75}
-_COMMITMENT_LEVER = {"AWS": "R1", "Azure": "R5", "GCP": "R7"}
-_ARM_LEVER = {"AWS": "R14", "Azure": "R15", "GCP": "R16"}
-_TIER_LEVER = {"AWS": "U12", "Azure": "U13", "GCP": "U14"}
+# --------------------------------------------------------------------------
+# What a rate detector needs to know about a cloud.
+#
+# These were five parallel dicts keyed by ProviderName and indexed directly.
+# ProviderName is a free string in FOCUS -- deliberately, because the spec must
+# survive a provider the spec's authors have not met -- so `focus_file.py` will
+# happily hand us a conformant export from OCI, IBM, Alibaba or a private cloud.
+# Direct indexing turned that into `KeyError('OCI')` deep inside a detector.
+#
+# So the lookup is total. An unknown cloud yields no profile, and a rate
+# detector that has no profile emits no opportunity. That is the honest answer:
+# we do not know what this cloud's commitment instrument is called, or what it
+# discounts, so we must not invent a lever for it. The row still counts toward
+# spend, allocation, forecast and anomaly detection -- all of which are
+# provider-agnostic and need no profile at all.
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CloudProfile:
+    commitment_rate: float  # fractional discount off ODE for a term commitment
+    commitment_lever: str
+    spot_discount: float  # fractional discount off on-demand for interruptible capacity
+    arm_lever: Optional[str] = None  # None where the cloud has no ARM offering
+    tier_lever: Optional[str] = None  # object-storage lifecycle / tiering
+
+
+# Rates mirror connectors.demo so the demo numbers reconcile, and are
+# representative of published list discounts.
+_PROFILES: Dict[str, CloudProfile] = {
+    "AWS": CloudProfile(0.31, "R1", 0.72, arm_lever="R14", tier_lever="U12"),
+    "Azure": CloudProfile(0.34, "R5", 0.68, arm_lever="R15", tier_lever="U13"),
+    "GCP": CloudProfile(0.28, "R7", 0.75, arm_lever="R16", tier_lever="U14"),
+    # OCI's term instrument is the Annual Universal Credit -- a spend commitment
+    # against the whole tenancy, closer to an AWS Savings Plan than to an RI.
+    # Interruptible capacity is a Preemptible Instance, fixed by Oracle at 50%
+    # off on-demand (published, not negotiated -- hence no range).
+    "OCI": CloudProfile(0.25, "R17", 0.50, arm_lever="R18", tier_lever="U21"),
+}
+
+
+def _profile(cloud: object) -> Optional[CloudProfile]:
+    return _PROFILES.get(str(cloud))
 
 # Idle-resource ResourceType -> lever.
 _IDLE_LEVER = {
@@ -480,13 +557,16 @@ def _detect_commitment_gap(df: pd.DataFrame) -> List[Opportunity]:
             trailing = monthly.tail(6)
             if trailing.empty:
                 continue
+            prof = _profile(cloud)
+            if prof is None:
+                continue
             floor = float(trailing.min())
             peak = float(trailing.max())
-            rate = _COMMITMENT_RATE[str(cloud)]
+            rate = prof.commitment_rate
             monthly_savings = floor * rate
             if monthly_savings < MIN_MONTHLY_SAVINGS:
                 continue
-            lever_id = _COMMITMENT_LEVER[str(cloud)]
+            lever_id = prof.commitment_lever
             out.append(
                 _opp(
                     lever_id,
@@ -523,7 +603,9 @@ def _detect_commitment_waste(df: pd.DataFrame) -> List[Opportunity]:
         monthly_savings = float(g[COST].sum()) / months
         if monthly_savings < MIN_MONTHLY_SAVINGS:
             continue
-        lever_id = _COMMITMENT_LEVER[str(cloud)]
+        # R21, not the cloud's buy-a-commitment lever: the money is already
+        # burned, and no profile is needed, so this fires for any provider.
+        lever_id = "R21"
         out.append(
             _opp(
                 lever_id,
@@ -614,13 +696,13 @@ def _detect_gp2_volumes(df: pd.DataFrame) -> List[Opportunity]:
 def _detect_previous_generation(df: pd.DataFrame) -> List[Opportunity]:
     """Previous-generation instance families -> current gen. 10-15%.
 
-    AWS m4/c4/r4/t2, Azure *_v2, GCP n1-. A current-gen swap is same-shape and
-    typically cheaper for equal or better performance.
+    AWS m4/c4/r4/t2, Azure *_v2, GCP n1-, OCI VM.Standard2. A current-gen swap
+    is same-shape and typically cheaper for equal or better performance.
     """
     sku = _skustr(df)
     comp = df[df["ServiceCategory"] == "Compute"]
     sku_c = _skustr(comp)
-    prev = comp[sku_c.str.contains(r"m4\.|c4\.|r4\.|t2\.|_v2|n1-", regex=True)]
+    prev = comp[sku_c.str.contains(r"m4\.|c4\.|r4\.|t2\.|_v2|n1-|VM\.Standard2\.", regex=True)]
     if prev.empty:
         return []
     months = _months(df)
@@ -713,8 +795,11 @@ def _detect_spot_candidates(df: pd.DataFrame) -> List[Opportunity]:
     months = _months(df)
     out: List[Opportunity] = []
     for cloud, g in cand.groupby("ProviderName", observed=True):
+        prof = _profile(cloud)
+        if prof is None:
+            continue
         spend = float(g[COST].sum())
-        rate = _SPOT_DISCOUNT[str(cloud)] * 0.40
+        rate = prof.spot_discount * 0.40
         monthly_savings = spend / months * rate
         if monthly_savings < MIN_MONTHLY_SAVINGS:
             continue
@@ -728,7 +813,7 @@ def _detect_spot_candidates(df: pd.DataFrame) -> List[Opportunity]:
                 evidence={
                     "nonprod_standard_compute_spend": round(spend, 2),
                     "months_observed": months,
-                    "spot_discount": _SPOT_DISCOUNT[str(cloud)],
+                    "spot_discount": prof.spot_discount,
                     "adoption_haircut": 0.40,
                     "assumption": "Only ~40% of non-prod compute is interruption-tolerant.",
                 },
@@ -749,21 +834,25 @@ def _detect_arm_migration(df: pd.DataFrame) -> List[Opportunity]:
     if comp.empty:
         return []
     sku = _skustr(comp)
-    # ARM SKUs already in the estate -- exclude them.
-    already_arm = sku.str.contains(r"m7g|c4a|D4as|Cobalt|Ampere|Axion", regex=True)
+    # ARM SKUs already in the estate -- exclude them. 'A1' matches OCI's Ampere
+    # A1 shapes (VM.Standard.A1.Flex); 'Ampere' alone would miss them.
+    already_arm = sku.str.contains(r"m7g|c4a|D4as|Cobalt|Ampere|Axion|\.A1\.", regex=True)
     x86 = comp[~already_arm]
     if x86.empty:
         return []
     months = _months(df)
     out: List[Opportunity] = []
     for cloud, g in x86.groupby("ProviderName", observed=True):
+        prof = _profile(cloud)
+        if prof is None or prof.arm_lever is None:
+            continue
         spend = float(g[COST].sum())
         monthly_savings = spend / months * 0.20 * 0.35
         if monthly_savings < MIN_MONTHLY_SAVINGS:
             continue
         out.append(
             _opp(
-                _ARM_LEVER[str(cloud)],
+                prof.arm_lever,
                 str(cloud),
                 f"{cloud} x86 compute (ARM-migratable)",
                 monthly_savings,
@@ -782,14 +871,16 @@ def _detect_arm_migration(df: pd.DataFrame) -> List[Opportunity]:
 
 
 def _detect_license_included(df: pd.DataFrame) -> List[Opportunity]:
-    """license-included SKUs -> Azure Hybrid Benefit (Azure) or BYOL (elsewhere).
+    """license-included SKUs -> the licence instrument the cloud actually has.
 
     Split per cloud on purpose. Azure Hybrid Benefit is an Azure-only programme;
     naming it against AWS or GCP spend would send an engineer hunting for a
-    lever that does not exist there. Off Azure the instrument is licence
-    mobility / BYOL (R12) -- a wider savings band, more compliance risk, and a
-    lower confidence because entitlement mobility rights are not visible in a
-    bill.
+    lever that does not exist there. OCI has its own named instrument, BYOL to
+    OCI, which is the whole economic argument for running Oracle workloads on
+    Oracle's cloud -- calling it generic "licence mobility" would understate it.
+    Everywhere else the instrument is licence mobility / BYOL (R12) -- a wider
+    savings band, more compliance risk, and a lower confidence because
+    entitlement mobility rights are not visible in a bill.
     """
     sku = _skustr(df)
     lic = df[sku.str.contains("license-included") & (df["ChargeCategory"] == "Usage")]
@@ -809,6 +900,13 @@ def _detect_license_included(df: pd.DataFrame) -> List[Opportunity]:
             assumption = (
                 "Owned Windows Server / SQL Server entitlements with active Software "
                 "Assurance are available to apply."
+            )
+        elif str(cloud) == "OCI":
+            lever_id, rate, conf = "R20", 0.40, 0.60  # BYOL to OCI
+            assumption = (
+                "Owned Oracle Database licences with active support can be applied "
+                "under BYOL to OCI. Confidence sits above generic mobility because "
+                "the entitlement and the cloud have the same vendor."
             )
         else:
             lever_id, rate, conf = "R12", 0.30, 0.50  # mid of the 20-50% BYOL band
@@ -862,9 +960,10 @@ def _detect_storage_tiering(df: pd.DataFrame) -> List[Opportunity]:
     cold_fraction = 0.25
     tier_saving = 0.35
     for cloud, g in stor.groupby("ProviderName", observed=True):
-        lever_id = _TIER_LEVER.get(str(cloud))
-        if lever_id is None:
+        prof = _profile(cloud)
+        if prof is None or prof.tier_lever is None:
             continue
+        lever_id = prof.tier_lever
         spend = float(g[COST].sum())
         monthly_savings = spend / months * cold_fraction * tier_saving
         if monthly_savings < MIN_MONTHLY_SAVINGS:

@@ -310,13 +310,14 @@ COMMITMENT_DISCOUNT_CATEGORY: Set[str] = {"Spend", "Usage"}
 COMMITMENT_DISCOUNT_STATUS: Set[str] = {"Used", "Unused"}
 CAPACITY_RESERVATION_STATUS: Set[str] = {"Used", "Unused"}
 
-# CommitmentDiscountType is free-form. These are the values the three
-# hyperscalers actually emit -- used for grouping, never for validation.
+# CommitmentDiscountType is free-form. These are the values the major providers
+# actually emit -- used for grouping, never for validation.
 KNOWN_COMMITMENT_TYPES: List[str] = [
     "Reserved Instance",
     "Savings Plan",
     "Committed Use Discount",
     "Reservation",
+    "Universal Credits",  # OCI: a tenancy-wide spend commitment, not a reservation
 ]
 
 ENUMS: Dict[str, Set[str]] = {

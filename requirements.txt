@@ -63,6 +63,12 @@ psycopg[binary]>=3.1,<4
 #     google-auth>=2.30
 #     gcsfs>=2024.6
 #
+#   OCI    (FOCUS cost reports in the Oracle-owned 'bling' bucket, Cloud Advisor,
+#          Budgets). Reading that bucket also needs an IAM policy, because the
+#          bucket lives in Oracle's tenancy rather than yours:
+#            endorse group <your-group> to read objects in tenancy usage-report
+#     oci>=2.160
+#
 #   Kubernetes allocation (Kubecost / OpenCost) needs nothing extra -- REST.
 # ---------------------------------------------------------------------------
 

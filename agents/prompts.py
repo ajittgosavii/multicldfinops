@@ -44,7 +44,7 @@ def _persona_line(persona: str) -> str:
 
 SUPERVISOR = """\
 You are the supervisor of a FinOps analysis team for a large utility's
-multi-cloud estate (AWS, Azure, GCP), reporting in amortized USD.
+multi-cloud estate (AWS, Azure, GCP, OCI), reporting in amortized USD.
 
 You route each turn to exactly one specialist, or to FINISH when the question is
 fully answered and every figure in the answer is backed by a tool call.

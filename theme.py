@@ -178,13 +178,20 @@ def surface(mode: str = DEFAULT_MODE) -> Surface:
 # --------------------------------------------------------------------------
 # Stable entity -> colour bindings.
 #
-# A filter that removes a cloud must NOT repaint the survivors, so the three
+# A filter that removes a cloud must NOT repaint the survivors, so the
 # providers are pinned to fixed slots. Everything else is assigned in slot
 # order at first sight and cached (see `colour_map`).
+#
+# OCI takes slot 3 (violet), not Oracle red. Red would sit a few degrees from
+# Azure's orange at slot 1, and it is the same hue this palette reserves for
+# `critical`. A provider must never look like an alert.
+#
+# A provider with no slot is not an error -- `provider_colour` returns muted
+# ink for it. FOCUS lets any string be a ProviderName.
 # --------------------------------------------------------------------------
 
-PROVIDER_SLOT: Dict[str, int] = {"AWS": 0, "Azure": 1, "GCP": 2}
-PROVIDERS: List[str] = ["AWS", "Azure", "GCP"]
+PROVIDER_SLOT: Dict[str, int] = {"AWS": 0, "Azure": 1, "GCP": 2, "OCI": 3}
+PROVIDERS: List[str] = ["AWS", "Azure", "GCP", "OCI"]
 
 
 def provider_colour(provider: str, mode: str = DEFAULT_MODE) -> str:

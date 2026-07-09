@@ -65,8 +65,11 @@ class App:
 
 
 APPS: List[App] = [
+    # Oracle Utilities Customer Care & Billing is the incumbent CIS across most
+    # of the US utility sector, so the billing system straddles AWS and OCI --
+    # which is exactly the estate a FinOps team actually has to explain.
     App("Customer Billing (CIS)", "Customer Operations", "CC-1010",
-        ("AWS",), ("Compute", "Databases", "Storage"), 210_000, 0.004, "flat", 0.72),
+        ("AWS", "OCI"), ("Compute", "Databases", "Storage"), 210_000, 0.004, "flat", 0.72),
     App("Outage Management (OMS)", "Electric Operations", "CC-2010",
         ("AWS", "Azure"), ("Compute", "Databases", "Networking"), 165_000, 0.006, "storm", 0.80),
     App("AMI Meter Data (MDM)", "Electric Operations", "CC-2020",
@@ -85,14 +88,38 @@ APPS: List[App] = [
         ("AWS", "GCP"), ("AI and Machine Learning", "Compute", "Storage"), 26_000, 0.075, "ramp", 0.60),
     App("Steam Distribution Ops", "Steam Operations", "CC-5010",
         ("Azure",), ("Compute", "Databases"), 42_000, 0.001, "winter", 0.85),
+    # Oracle E-Business Suite, lifted to OCI. Single-cloud on purpose: it gives
+    # OCI a workload nobody is tempted to re-platform, which is the honest shape
+    # of an Oracle estate -- the licence, not the compute, is what anchors it.
+    App("Enterprise ERP (Oracle EBS)", "Corporate IT", "CC-9020",
+        ("OCI",), ("Compute", "Databases", "Storage"), 105_000, 0.002, "flat", 0.82),
     # The shared pool. Deliberately carries no business unit -- it is the cost
     # that showback has to split before anyone can be charged for it.
     App("Shared Platform Services", "Corporate IT", "CC-9000",
-        ("AWS", "Azure", "GCP"), ("Management and Governance", "Security", "Networking"),
+        ("AWS", "Azure", "GCP", "OCI"), ("Management and Governance", "Security", "Networking"),
         130_000, 0.005, "flat", 1.0),
 ]
 
 ENVIRONMENTS = ["prod", "nonprod", "dr"]
+
+# Every cloud that issues an invoice in this estate. Charges that belong to the
+# payer rather than to an application -- tax, credits, unused commitment, the
+# untagged pool -- are emitted once per entry here.
+BILLED_CLOUDS: Tuple[str, ...] = ("AWS", "Azure", "GCP", "OCI")
+
+
+def _share(clouds: Tuple[str, ...], cloud: str) -> float:
+    """Split an app's monthly base across the clouds it runs on.
+
+    The primary cloud takes 68%; the rest divide the remaining 32% evenly. The
+    shares sum to exactly 1, so `App.monthly_base` means what it says. (They
+    previously did not: every non-primary cloud took a flat 0.32, so a
+    three-cloud app silently billed 1.32x its base and a four-cloud app would
+    have billed 1.64x.)
+    """
+    if len(clouds) == 1:
+        return 1.0
+    return 0.68 if cloud == clouds[0] else 0.32 / (len(clouds) - 1)
 
 SERVICE_NAMES: Dict[Tuple[str, str], List[str]] = {
     ("AWS", "Compute"): ["Amazon EC2", "AWS Lambda", "Amazon EKS"],
@@ -119,34 +146,74 @@ SERVICE_NAMES: Dict[Tuple[str, str], List[str]] = {
     ("GCP", "AI and Machine Learning"): ["Vertex AI"],
     ("GCP", "Management and Governance"): ["Cloud Monitoring", "Cloud Logging"],
     ("GCP", "Security"): ["Cloud Armor", "Security Command Center"],
+    ("OCI", "Compute"): ["Compute", "Container Engine for Kubernetes", "Functions"],
+    ("OCI", "Storage"): ["Object Storage", "Block Volume", "File Storage"],
+    ("OCI", "Databases"): ["Autonomous Database", "Base Database Service", "MySQL HeatWave"],
+    ("OCI", "Networking"): ["Virtual Cloud Network", "Load Balancer", "FastConnect"],
+    ("OCI", "Analytics"): ["Analytics Cloud", "Big Data Service"],
+    ("OCI", "AI and Machine Learning"): ["OCI Generative AI", "Data Science"],
+    ("OCI", "Management and Governance"): ["Monitoring", "Logging"],
+    ("OCI", "Security"): ["Cloud Guard", "Web Application Firewall"],
 }
 
 REGIONS: Dict[str, List[Tuple[str, str]]] = {
     "AWS": [("us-east-1", "US East (N. Virginia)"), ("us-east-2", "US East (Ohio)")],
     "Azure": [("eastus", "East US"), ("eastus2", "East US 2")],
     "GCP": [("us-east4", "Northern Virginia"), ("us-central1", "Iowa")],
+    "OCI": [("us-ashburn-1", "US East (Ashburn)"), ("us-phoenix-1", "US West (Phoenix)")],
 }
 
 BILLING_ACCOUNT = {
     "AWS": ("471820193004", "Con Edison AWS Payer"),
     "Azure": ("f0e2c7b1-9a44-4d1e-9d2b-3c8e1a6b7f22", "Con Edison Azure EA"),
     "GCP": ("01A2B3-C4D5E6-F70819", "Con Edison GCP Billing Account"),
+    # In OCI the billing account IS the tenancy; there is no separate payer.
+    "OCI": ("ocid1.tenancy.oc1..aaaaaaaaconedxmpl3t3nancy0c1d", "Con Edison OCI Tenancy"),
 }
 
+# OCI's term instrument is the Annual Universal Credit: a spend commitment
+# against the whole tenancy, closer to a Savings Plan than to a Reservation.
 COMMITMENT_TYPE = {
     "AWS": ("Savings Plan", "Spend"),
     "Azure": ("Reservation", "Usage"),
     "GCP": ("Committed Use Discount", "Spend"),
+    "OCI": ("Universal Credits", "Spend"),
 }
 
-# Negotiated enterprise discount off list (EDP / MACC / Google commit).
-NEGOTIATED_DISCOUNT = {"AWS": 0.12, "Azure": 0.14, "GCP": 0.10}
+# Negotiated enterprise discount off list (EDP / MACC / Google commit /
+# Oracle's Universal Credit rate card).
+NEGOTIATED_DISCOUNT = {"AWS": 0.12, "Azure": 0.14, "GCP": 0.10, "OCI": 0.15}
 
 # Additional discount when a commitment covers the usage.
-COMMITMENT_DISCOUNT = {"AWS": 0.31, "Azure": 0.34, "GCP": 0.28}
+# MUST match optimize._PROFILES[...].commitment_rate or the demo will not reconcile.
+COMMITMENT_DISCOUNT = {"AWS": 0.31, "Azure": 0.34, "GCP": 0.28, "OCI": 0.25}
 
-# Spot / preemptible discount off list.
-SPOT_DISCOUNT = {"AWS": 0.72, "Azure": 0.68, "GCP": 0.75}
+# Spot / preemptible discount off list. OCI publishes a flat 50% for Preemptible
+# Instances rather than a fluctuating market rate.
+SPOT_DISCOUNT = {"AWS": 0.72, "Azure": 0.68, "GCP": 0.75, "OCI": 0.50}
+
+BILLING_ACCOUNT_TYPE = {
+    "AWS": "Payer Account",
+    "Azure": "Billing Account",
+    "GCP": "Billing Account",
+    "OCI": "Tenancy",
+}
+
+ISSUER = {
+    "AWS": "Amazon Web Services",
+    "Azure": "Microsoft",
+    "GCP": "Google Cloud",
+    "OCI": "Oracle Cloud Infrastructure",
+}
+
+# The account below the payer. OCI calls it a compartment, and compartments nest
+# -- which is precisely why OCI allocation is a different problem from tagging.
+SUBACCOUNT_TYPE = {
+    "AWS": "Account",
+    "Azure": "Subscription",
+    "GCP": "Project",
+    "OCI": "Compartment",
+}
 
 
 # ==========================================================================
@@ -249,14 +316,14 @@ class _Gen:
         return {
             "BillingAccountId": acct_id,
             "BillingAccountName": acct_name,
-            "BillingAccountType": {"AWS": "Payer Account", "Azure": "Billing Account", "GCP": "Billing Account"}[cloud],
+            "BillingAccountType": BILLING_ACCOUNT_TYPE[cloud],
             "BillingCurrency": "USD",
             "BillingPeriodStart": billing_start,
             "BillingPeriodEnd": billing_end,
             "InvoiceId": f"{cloud[:3].upper()}-{billing_start:%Y%m}",
-            "InvoiceIssuerName": {"AWS": "Amazon Web Services", "Azure": "Microsoft", "GCP": "Google Cloud"}[cloud],
+            "InvoiceIssuerName": ISSUER[cloud],
             "ProviderName": cloud,
-            "PublisherName": {"AWS": "Amazon Web Services", "Azure": "Microsoft", "GCP": "Google Cloud"}[cloud],
+            "PublisherName": ISSUER[cloud],
             "ChargePeriodStart": period_start,
             "ChargePeriodEnd": period_end,
             "ChargeClass": pd.NA,
@@ -327,6 +394,8 @@ class _Gen:
             return f"{abs(hash(slug)) % 10**12:012d}", f"coned-{slug}"
         if cloud == "Azure":
             return f"sub-{abs(hash(slug)) % 10**8:08x}", f"coned-{slug}-sub"
+        if cloud == "OCI":
+            return f"ocid1.compartment.oc1..{abs(hash(slug)) % 10**12:012d}", f"coned-{slug}"
         return f"coned-{slug}", f"coned-{slug}"
 
     def _usage_row(
@@ -378,7 +447,7 @@ class _Gen:
             {
                 "SubAccountId": sub_id,
                 "SubAccountName": sub_name,
-                "SubAccountType": "Account" if cloud == "AWS" else ("Subscription" if cloud == "Azure" else "Project"),
+                "SubAccountType": SUBACCOUNT_TYPE[cloud],
                 "ChargeCategory": "Usage",
                 "ChargeDescription": f"{service_name} usage in {region_id}",
                 "ChargeFrequency": "Usage-Based",
@@ -444,6 +513,8 @@ class _Gen:
             return f"arn:aws:{category[:3].lower()}:us-east-1:471820193004:resource/{h:010d}"
         if cloud == "Azure":
             return f"/subscriptions/sub/resourceGroups/{env}/providers/{category}/{h:010d}"
+        if cloud == "OCI":
+            return f"ocid1.{category[:3].lower()}.oc1.us-ashburn-1.{h:010d}"
         return f"//compute.googleapis.com/projects/coned/{category}/{h:010d}"
 
     def _sku(self, cloud: str, category: str, env: str) -> str:
@@ -461,6 +532,12 @@ class _Gen:
                 fam = "m4.xlarge" if self.rng.random() < 0.22 else "m7g.xlarge"
             elif cloud == "Azure":
                 fam = "Standard_D2_v2" if self.rng.random() < 0.20 else "Standard_D4as_v5"
+            elif cloud == "OCI":
+                # VM.Standard2 is previous-gen x86, E5.Flex current x86, A1.Flex
+                # Ampere Arm. An Oracle estate is overwhelmingly x86 -- the ARM
+                # lever should have something to bite on, not almost nothing.
+                r = self.rng.random()
+                fam = "VM.Standard2.4" if r < 0.24 else ("VM.Standard.E5.Flex" if r < 0.88 else "VM.Standard.A1.Flex")
             else:
                 fam = "n1-standard-4" if self.rng.random() < 0.18 else "c4a-standard-4"
             lic = ":license-included" if self.rng.random() < 0.15 else ""
@@ -530,7 +607,9 @@ class _Gen:
         ctype, ccat = COMMITMENT_TYPE[cloud]
         # Utilization drifts: worse in the months right after a purchase wave.
         ago = self._months_ago(month_start)
-        base_unused = {"AWS": 5_600, "Azure": 4_200, "GCP": 2_100}[cloud]
+        # OCI's Universal Credit is a tenancy-wide spend commitment rather than a
+        # per-instance reservation, so less of it strands unused.
+        base_unused = {"AWS": 5_600, "Azure": 4_200, "GCP": 2_100, "OCI": 1_300}[cloud]
         factor = 1.9 if ago in (9, 10, 11) else 1.0
         amount = float(self.rng.normal(base_unused * factor, base_unused * 0.15))
         if amount <= 0:
@@ -569,7 +648,7 @@ class _Gen:
         if self._months_ago(month_start) not in (11, 23):
             return
         ctype, ccat = COMMITMENT_TYPE[cloud]
-        amount = {"AWS": 1_450_000, "Azure": 980_000, "GCP": 410_000}[cloud]
+        amount = {"AWS": 1_450_000, "Azure": 980_000, "GCP": 410_000, "OCI": 620_000}[cloud]
         row = self._base_row(cloud, month_start, month_start + pd.DateOffset(months=1))
         row.update(
             {
@@ -669,7 +748,7 @@ class _Gen:
             ago = self._months_ago(m)
             days_in_month = int((m + pd.DateOffset(months=1) - m).days)
 
-            for cloud in ("AWS", "Azure", "GCP"):
+            for cloud in BILLED_CLOUDS:
                 self._emit_unused_commitment(cloud, m)
                 self._emit_purchase(cloud, m)
                 self._emit_tax_and_credits(cloud, m)
@@ -688,10 +767,9 @@ class _Gen:
                     season = _seasonal(app.seasonality, day.month)
                     factor = growth * season * step
                     for cloud in app.clouds:
-                        share = 1.0 if len(app.clouds) == 1 else (0.68 if cloud == app.clouds[0] else 0.32)
-                        self._emit_usage(app, cloud, day, factor * share, span_days=span)
+                        self._emit_usage(app, cloud, day, factor * _share(app.clouds, cloud), span_days=span)
 
-                for cloud in ("AWS", "Azure", "GCP"):
+                for cloud in BILLED_CLOUDS:
                     self._emit_unallocated(cloud, day, step, span_days=span)
 
         df = pd.DataFrame(self.rows)
@@ -802,7 +880,7 @@ class DemoConnector(Connector):
             key="demo",
             display_name="Demo data (synthetic)",
             vendor="Multi-Cloud FinOps Command Center",
-            clouds=["AWS", "Azure", "GCP"],
+            clouds=list(BILLED_CLOUDS),
             auth=AuthKind.NONE,
             capabilities=[
                 Capability.COSTS,

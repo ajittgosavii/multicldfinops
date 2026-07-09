@@ -53,10 +53,16 @@ ALLOCATION_METHODS = ["direct", "even_split", "proportional", "fixed_percentage"
 #   Azure 50 name/value pairs; tag inheritance is a Cost Management setting
 #         applied to usage records, not a property of the resource.
 #   GCP   64 labels; key and value each <= 63 chars, lowercase only.
+#   OCI   two systems: free-form tags are ungoverned key/value pairs, while
+#         defined tags live in an administrator-controlled namespace. Only the
+#         defined ones are safe to build chargeback on. Compartments also carry
+#         cost, and they nest -- so OCI allocation is a hierarchy problem as
+#         much as a tagging one.
 PROVIDER_TAG_LIMITS: Dict[str, Dict[str, object]] = {
     "AWS": {"max_tags": 50, "max_cost_allocation_keys": 500, "retroactive": False},
     "Azure": {"max_tags": 50, "inheritance": "cost-management-setting"},
     "GCP": {"max_labels": 64, "max_key_len": 63, "max_value_len": 63, "lowercase": True},
+    "OCI": {"max_defined_tags": 64, "max_freeform_tags": 64, "namespaced": True},
 }
 
 

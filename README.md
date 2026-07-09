@@ -1,6 +1,6 @@
 # Infosys — Multi-Cloud FinOps Command Center
 
-An enterprise FinOps platform for **AWS, Azure and GCP** — VP/Director dashboards by
+An enterprise FinOps platform for **AWS, Azure, GCP and OCI** — VP/Director dashboards by
 application, showback/chargeback with shared-cost allocation, spend baselining, a
 **24-month forecast against budget**, and an optimization backlog built from a catalog of
 FinOps levers. An **OpenAI + LangGraph** agent team answers questions against the real
@@ -42,7 +42,7 @@ FinOps Foundation made with FOCUS.
 
 | Mode | What it does | Credentials |
 |---|---|---|
-| **Demo** | Generates a deterministic, utility-shaped FOCUS 1.2 estate in-process — 24 months, 3 clouds, 11 applications, ~55k charge rows | None |
+| **Demo** | Generates a deterministic, utility-shaped FOCUS 1.2 estate in-process — 24 months, 4 clouds, 12 applications, ~63k charge rows | None |
 | **Live** | Pulls real billing data through the configured connectors | Streamlit secrets or env |
 
 Demo Mode is not a mock. It is the same `Connector` interface producing a frame that

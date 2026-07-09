@@ -505,7 +505,13 @@ def _proof_points() -> List[Tuple[str, str]]:
     If a count fails to import we drop that claim rather than print the
     hard-coded fallback and quietly lie about it.
     """
-    points: List[Tuple[str, str]] = [("3", "clouds")]
+    points: List[Tuple[str, str]] = []
+    try:
+        import finops_core
+
+        points.append((str(len(finops_core.CLOUDS)), "clouds"))
+    except Exception:
+        pass
     try:
         import connectors
 

@@ -64,8 +64,8 @@ def test_get_spend_summary(tool_map):
     assert isinstance(out, dict)
     assert out["total_spend"] and out["total_spend"] > 0
     assert out["breakdown"], "expected a per-provider breakdown"
-    # Demo estate spans AWS/Azure/GCP.
-    assert any(k in out["breakdown"] for k in ("AWS", "Azure", "GCP"))
+    # Demo estate spans AWS/Azure/GCP/OCI.
+    assert any(k in out["breakdown"] for k in ("AWS", "Azure", "GCP", "OCI"))
 
 
 def test_get_executive_kpis(tool_map):

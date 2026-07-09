@@ -73,7 +73,7 @@ def test_commitment_waste_matches_kpi(demo, opps):
     expected_total = kpi.commitment_waste(demo) / months
     waste_opps = [
         o for o in opps
-        if o.lever_id in ("R1", "R5", "R7") and "unused commitment" in o.scope.lower()
+        if o.lever_id == "R21" and "unused commitment" in o.scope.lower()
     ]
     assert waste_opps, "no commitment-waste opportunity detected"
     got_total = sum(o.monthly_savings for o in waste_opps)

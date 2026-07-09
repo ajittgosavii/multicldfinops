@@ -367,7 +367,7 @@ def slide_title(prs, f: Facts):
         Inches(1.95),
         Inches(11),
         Inches(0.5),
-        "A single plane of control for AWS, Azure and GCP spend",
+        "A single plane of control for AWS, Azure, GCP and OCI spend",
         16,
         False,
         BODY,
@@ -393,9 +393,9 @@ def slide_title(prs, f: Facts):
 
 def slide_challenge(prs, f: Facts):
     s = blank(prs)
-    header(s, "The problem", "Three clouds, three answers, no single truth", "Why multi-cloud FinOps is hard before it is expensive")
+    header(s, "The problem", "Four clouds, four answers, no single truth", "Why multi-cloud FinOps is hard before it is expensive")
     items = [
-        ("Fragmented data", "Each provider bills in its own schema. Reconciling AWS, Azure and GCP by hand is a monthly project, not a dashboard."),
+        ("Fragmented data", "Each provider bills in its own schema. Reconciling AWS, Azure, GCP and OCI by hand is a monthly project, not a dashboard."),
         ("Tool lock-in", "Pick a FinOps platform and every dashboard, KPI and script is written against that vendor's field names. Switching means rebuilding."),
         ("Unallocated spend", "Untagged resources land in a bucket nobody owns, so chargeback is disputed and showback is ignored."),
         ("Blind forecasting", "A trend line walks straight through a commitment expiry. The rate snaps back to on-demand and the variance lands unannounced."),
@@ -414,7 +414,7 @@ def slide_one_idea(prs, f: Facts):
     s = blank(prs)
     header(s, "The approach", "One idea: normalise everything to FOCUS", "The FinOps Foundation's Open Cost and Usage Specification is the contract")
 
-    sources = ["AWS Data Exports", "Azure Cost Management", "GCP Billing Export", "Any procured FinOps tool", "Any FOCUS CSV / Parquet"]
+    sources = ["AWS Data Exports", "Azure Cost Management", "GCP Billing Export", "OCI FOCUS Reports", "Any procured FinOps tool", "Any FOCUS CSV / Parquet"]
     y = Inches(2.3)
     for src in sources:
         rect(s, Inches(0.7), y, Inches(2.9), Inches(0.55), PAPER, RULE)
@@ -456,7 +456,7 @@ def slide_architecture(prs, f: Facts):
     header(s, "Architecture", "Two modes, one code path", "Nothing below the loader knows which mode is active")
     cards = [
         ("Demo Mode", AZURE, ["Deterministic synthetic estate, generated in-process", "24 months, 3 clouds, 11 applications", f"{f.rows:,} FOCUS charge rows", "No credentials, no network calls, no cloud spend", "Used for evaluation, training and demos"]),
-        ("Live Mode", TEAL, ["Real billing data through configured connectors", "Native AWS / Azure / GCP, or a procured tool", "Multiple payers, tenants and billing accounts", "A half-wired estate still renders the wired parts", "Cached: Cost Explorer bills ~$0.01 per request"]),
+        ("Live Mode", TEAL, ["Real billing data through configured connectors", "Native AWS / Azure / GCP / OCI, or a procured tool", "Multiple payers, tenants and billing accounts", "A half-wired estate still renders the wired parts", "Cached: Cost Explorer bills ~$0.01 per request"]),
     ]
     x = Inches(0.7)
     for title, colour, pts in cards:
@@ -522,7 +522,7 @@ def slide_lld(prs, f: Facts):
 
 def slide_exec(prs, f: Facts):
     s = blank(prs)
-    header(s, "Executive view", "What a VP sees first", f"Amortised spend across AWS, Azure and GCP · {f.months} months of history")
+    header(s, "Executive view", "What a VP sees first", f"Amortised spend across AWS, Azure, GCP and OCI · {f.months} months of history")
     cards = [
         ("Total amortised spend", money(f.spend), f"Run-rate {money(f.run_rate)}/yr", AZURE),
         ("Effective savings rate", f"{f.esr:.1f}%", "vs on-demand equivalent", VIOLET),
@@ -723,7 +723,7 @@ def slide_connect(prs, f: Facts):
         y += Inches(1.12)
 
     box(s, Inches(0.7), Inches(5.7), Inches(11.9), Inches(1.1),
-        "A second credential is needed only for a second PAYER — another AWS organization, another Azure tenant or billing "
+        "A second credential is needed only for a second PAYER — another AWS organization, another Azure tenant, another OCI tenancy or billing "
         "account, another GCP billing account. A regulated utility usually has several, because regulated and unregulated "
         "entities cannot share a bill. Declare each as an [[accounts]] entry; they are pulled independently and concatenated "
         "into one FOCUS frame, where BillingAccountId keeps them apart. A failing binding never takes the page down.",
@@ -838,7 +838,7 @@ def slide_integrations(prs, f: Facts):
     header(s, "Vendor neutrality", f"{f.n_connectors} connectors, one schema",
            "Whatever Con Edison procures, the dashboards do not change")
     groups = [
-        ("Native cloud", AZURE, ["AWS — Data Exports (FOCUS 1.2), Cost Explorer, Cost Optimization Hub", "Azure — Cost Management, FocusCost exports, Advisor", "GCP — BigQuery billing export, Recommender, Budgets"]),
+        ("Native cloud", AZURE, ["AWS — Data Exports (FOCUS 1.2), Cost Explorer, Cost Optimization Hub", "Azure — Cost Management, FocusCost exports, Advisor", "GCP — BigQuery billing export, Recommender, Budgets", "OCI — FOCUS cost reports, Cloud Advisor, Budgets"]),
         ("Procured platforms", VIOLET, ["Apptio Cloudability · Tanzu CloudHealth · Flexera One", "Finout · Vantage · CloudZero · Harness CCM · nOps", "Kubecost · OpenCost · IBM Turbonomic · ServiceNow"]),
         ("Zero-code path", TEAL, ["Any FOCUS CSV or Parquet — local, S3, Azure Blob or GCS", "CloudZero and Vantage emit FOCUS natively", "Cloudability, CloudHealth and Flexera ingest it"]),
     ]

@@ -67,7 +67,10 @@ class FocusFileConnector(Connector):
             key="focus_file",
             display_name="FOCUS file / object store",
             vendor="FOCUS",
-            clouds=["AWS", "Azure", "GCP"],
+            # Any provider that emits a conformant export, named or not. The
+            # list below is what we style and price levers for; a ProviderName
+            # outside it still loads, allocates and forecasts.
+            clouds=["AWS", "Azure", "GCP", "OCI"],
             auth=AuthKind.NONE,
             capabilities=[Capability.COSTS, Capability.NATIVE_FOCUS],
             required_secrets=[],

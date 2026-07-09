@@ -23,7 +23,7 @@ import streamlit as st
 import data
 import theme
 import ui
-from finops_core import AppConfig, DataContext, Mode, load_config
+from finops_core import CLOUDS, AppConfig, DataContext, Mode, load_config
 
 # --------------------------------------------------------------------------
 # Tabs. Order is the reading order of a FinOps conversation: what happened,
@@ -70,7 +70,7 @@ def _sidebar() -> tuple[AppConfig, dict]:
             with st.expander("Connector assignment", expanded=False):
                 import connectors as reg
 
-                for cloud in ("AWS", "Azure", "GCP"):
+                for cloud in CLOUDS:
                     options = reg.connectors_for_cloud(cloud) or ["demo"]
                     default = cfg.connector_for.get(cloud, options[0])
                     idx = options.index(default) if default in options else 0

@@ -17,6 +17,7 @@ import allocation
 import anomaly
 import budget
 import finops_core
+from finops_core import CLOUDS
 import focus
 import forecast
 from connectors.demo import build_demo_dataset
@@ -101,10 +102,10 @@ def test_driver_overlay_steps_up_from_the_named_month(monthly):
 def test_variance_table_by_cloud(estate):
     df, budgets, _ = estate
     vt = budget.variance_table(df, budgets, by=["cloud"])
-    assert len(vt) == 3  # AWS, Azure, GCP
+    assert len(vt) == len(CLOUDS)
     # Variance$ = Actual - Budget, exactly.
     assert np.allclose(vt["variance_abs"], vt["actual"] - vt["budget"])
-    assert set(vt["cloud"]) == {"AWS", "Azure", "GCP"}
+    assert set(vt["cloud"]) == set(CLOUDS)
 
 
 def test_year_end_projection(estate, monthly):
@@ -118,7 +119,7 @@ def test_year_end_projection(estate, monthly):
 def test_run_rate_table(estate):
     df = estate[0]
     rr = budget.run_rate_table(df)
-    assert set(rr["cloud"]) == {"AWS", "Azure", "GCP"}
+    assert set(rr["cloud"]) == set(CLOUDS)
     assert (rr["run_rate_annual"] >= rr["mtd"]).all()
 
 
@@ -222,8 +223,8 @@ def test_bindings_default_to_one_per_cloud():
 
     cfg = AppConfig()
     bindings = cfg.bindings()
-    assert {b.cloud for b in bindings} == {"AWS", "Azure", "GCP"}
-    assert [b.connector for b in bindings] == ["aws_native", "azure_native", "gcp_native"]
+    assert {b.cloud for b in bindings} == set(CLOUDS)
+    assert [b.connector for b in bindings] == ["aws_native", "azure_native", "gcp_native", "oci_native"]
 
 
 def test_multiple_payers_per_cloud_are_supported():

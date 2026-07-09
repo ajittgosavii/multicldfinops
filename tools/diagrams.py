@@ -156,22 +156,31 @@ def hld() -> List[str]:
         ("AWS", "Data Exports (FOCUS 1.2)\nCost Explorer · Cost Opt Hub"),
         ("Azure", "Cost Management\nFocusCost export · Advisor"),
         ("GCP", "BigQuery billing export\nRecommender · Budgets"),
+        ("OCI", "FOCUS cost reports\nCloud Advisor · Budgets"),
         ("Procured tool", "Cloudability · CloudHealth\nFlexera · Finout · Vantage"),
         ("FOCUS file", "CSV / Parquet\nlocal · s3 · az · gs"),
     ]
+    # Six sources on a 100-unit canvas: width 14.2 at a 15.2 pitch spans
+    # 4.9 -> 95.1, which stays inside the band. The old 16.6/18.1 pair fitted
+    # five and would have run off the right edge at six.
+    src_w = 14.2
     src_cx = []
-    x = 6.5
+    x = 4.9
     for name, sub in srcs:
-        node(ax, x, Y_SRC, 16.6, 7.0, name, sub, AZURE, PAPER, 8.0, 5.2)
-        src_cx.append(x + 8.3)
-        x += 18.1
+        node(ax, x, Y_SRC, src_w, 7.0, name, sub, AZURE, PAPER, 7.6, 4.7)
+        src_cx.append(x + src_w / 2)
+        x += 15.2
 
     ing_h = 4.8
-    node(ax, 26, Y_ING, 48, ing_h, "connectors/  ·  Connector.fetch_costs()",
-         "17 connectors · lazy SDK imports · a failing binding never fails the page",
+    ing_x, ing_w = 26, 48
+    node(ax, ing_x, Y_ING, ing_w, ing_h, "connectors/  ·  Connector.fetch_costs()",
+         "18 connectors · lazy SDK imports · a failing binding never fails the page",
          TEAL, PAPER, 8.4, 5.6)
+    # Fan the arrows evenly across the ingest node. A fixed 9.0 pitch overshot
+    # its right edge as soon as a sixth source existed.
     for i, sx in enumerate(src_cx):
-        arrow(ax, (sx, Y_SRC + 7.0), (32 + i * 9.0, Y_ING), AZURE, lw=0.9)
+        tx = ing_x + ing_w * (i + 1) / (len(src_cx) + 1)
+        arrow(ax, (sx, Y_SRC + 7.0), (tx, Y_ING), AZURE, lw=0.9)
 
     can_h = 4.6
     node(ax, 31, Y_CAN, 38, can_h, "FOCUS 1.2 DataFrame",
@@ -184,7 +193,7 @@ def hld() -> List[str]:
            ("budget.py", "variance, bridge,\nyear-end"),
            ("anomaly.py", "STL + MAD\non the residual"),
            ("allocation.py", "showback, chargeback,\nshared-cost split"),
-           ("optimize.py", "53 levers,\nrule detectors")]
+           ("optimize.py", "59 levers,\nrule detectors")]
     x = 4.5
     eng_cx = []
     for name, sub in eng:

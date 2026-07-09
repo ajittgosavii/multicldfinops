@@ -30,7 +30,12 @@ import pandas as pd
 import focus
 
 APP_VERSION = "1.0.0"
-CLOUDS: List[str] = ["AWS", "Azure", "GCP"]
+
+# The clouds we ship a native connector for. NOT a closed set: FOCUS leaves
+# ProviderName a free string, and `focus_file` will ingest a conformant export
+# from any provider. Code that consumes bill data must therefore tolerate a
+# ProviderName it has never seen -- see optimize._profile.
+CLOUDS: List[str] = ["AWS", "Azure", "GCP", "OCI"]
 
 
 # ==========================================================================
@@ -142,7 +147,12 @@ class AppConfig:
     # Which connector supplies each cloud in LIVE mode. The simple path: one
     # payer per cloud. `accounts` supersedes it when more than one is configured.
     connector_for: Dict[str, str] = field(
-        default_factory=lambda: {"AWS": "aws_native", "Azure": "azure_native", "GCP": "gcp_native"}
+        default_factory=lambda: {
+            "AWS": "aws_native",
+            "Azure": "azure_native",
+            "GCP": "gcp_native",
+            "OCI": "oci_native",
+        }
     )
     accounts: List[AccountBinding] = field(default_factory=list)
 

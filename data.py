@@ -21,7 +21,7 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 
 import focus
-from finops_core import AccountBinding, AppConfig, DataContext, Mode, SourceInfo
+from finops_core import CLOUDS, AccountBinding, AppConfig, DataContext, Mode, SourceInfo
 
 DEFAULT_MONTHS = 24
 
@@ -76,7 +76,7 @@ def load_demo_context(cfg: Optional[AppConfig] = None, months: int = DEFAULT_MON
                 live=False,
                 note="Synthetic FOCUS 1.2 estate",
             )
-            for cloud in ("AWS", "Azure", "GCP")
+            for cloud in CLOUDS
         ],
         validation=focus.validate(df),
     )

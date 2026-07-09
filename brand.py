@@ -10,7 +10,7 @@ from __future__ import annotations
 
 BRAND = "Infosys"
 PRODUCT = "Multi-Cloud FinOps Command Center"
-TAGLINE = "AWS · Azure · GCP — allocation, forecast, and optimization in one plane"
+TAGLINE = "AWS · Azure · GCP · OCI — allocation, forecast, and optimization in one plane"
 PAGE_TITLE = f"{BRAND} | {PRODUCT}"
 
 # Identity palette. Chrome only: mastheads, the login page, the brand mark.
@@ -20,6 +20,7 @@ DEEP = "#04070F"
 AZURE = "#4FB3F5"
 TEAL = "#2FD8C4"
 VIOLET = "#8B7BF0"
+AMBER = "#F2B45A"
 GLOW = "#7FE3FF"
 
 # Phrases the login page cycles through. Each is a claim the product actually
@@ -28,16 +29,16 @@ ROTATING_CLAIMS = [
     "Every source normalised to FOCUS 1.2",
     "Showback, chargeback, and the shared-cost split",
     "Two-year forecasts that see the commitment cliff",
-    "53 optimization levers, detected from the bill",
+    "59 optimization levers, detected from the bill",
     "An agent team that only quotes numbers it measured",
 ]
 
 # Rendered as the login page's proof strip. These are counted from the code, so
 # if the numbers drift the strip is wrong -- see `ui._proof_points`.
 PROOF = [
-    ("3", "clouds"),
-    ("17", "connectors"),
-    ("53", "levers"),
+    ("4", "clouds"),
+    ("18", "connectors"),
+    ("59", "levers"),
     ("12", "dashboards"),
 ]
 
@@ -45,7 +46,7 @@ PROOF = [
 def hero_svg() -> str:
     """The login page's hero: the platform's architecture, animated.
 
-    It draws the one idea -- three clouds and any procured FinOps tool collapse
+    It draws the one idea -- four clouds and any procured FinOps tool collapse
     into a single FOCUS frame, and everything downstream reads only that. Flow
     dashes travel left to right along the paths, nodes breathe, and the FOCUS
     box's outline draws itself once on load.
@@ -75,7 +76,7 @@ def hero_svg() -> str:
 
     parts = [
         '<svg viewBox="0 0 560 330" class="mf-hero-svg" xmlns="http://www.w3.org/2000/svg" '
-        'role="img" aria-label="Three clouds and any FinOps tool normalise to one FOCUS frame">',
+        'role="img" aria-label="Four clouds and any FinOps tool normalise to one FOCUS frame">',
         "<defs>",
         f'<linearGradient id="mfhg" x1="0" y1="0" x2="560" y2="0">'
         f'<stop offset="0%" stop-color="{AZURE}"/><stop offset="55%" stop-color="{TEAL}"/>'
@@ -85,14 +86,14 @@ def hero_svg() -> str:
         "</defs>",
     ]
 
-    # Sources -> connector
-    for i, (label, colour, y) in enumerate(
-        [("AWS", AZURE, 34), ("Azure", TEAL, 130), ("GCP", VIOLET, 226)]
-    ):
-        parts.append(node(14, y, 92, 44, label, colour, i * 0.35))
-        parts.append(flow(f"M106 {y + 22} C 160 {y + 22}, 175 143, 218 143", i * 0.5))
-    parts.append(node(14, 268, 92, 40, "Any tool", faint, 1.05))
-    parts.append(flow("M106 288 C 165 288, 178 160, 218 152", 1.4))
+    # Sources -> connector. Five nodes of height 40 on a 56px pitch, centred on
+    # the connector's own centre line (y=143), so the fan stays symmetric:
+    # centres land at 31, 87, 143, 199, 255 and the column spans 11..275.
+    sources = [("AWS", AZURE), ("Azure", TEAL), ("GCP", VIOLET), ("OCI", AMBER), ("Any tool", faint)]
+    for i, (label, colour) in enumerate(sources):
+        cy = 31 + i * 56
+        parts.append(node(14, cy - 20, 92, 40, label, colour, i * 0.32))
+        parts.append(flow(f"M106 {cy} C 160 {cy}, 175 143, 218 143", i * 0.42))
 
     # Connector -> FOCUS
     parts.append(node(218, 121, 96, 44, "Connector", GLOW, 0.2))

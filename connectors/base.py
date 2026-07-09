@@ -49,13 +49,17 @@ class Capability(str, Enum):
 
 
 class AuthKind(str, Enum):
-    """The four families every vendor collapses into."""
+    """The families every vendor collapses into."""
 
     NONE = "none"
     SIGV4 = "sigv4"  # AWS
     OAUTH2_CLIENT_CREDENTIALS = "oauth2_client_credentials"  # Azure, GCP, Flexera
     BEARER_TOKEN = "bearer_token"  # Vantage, CloudHealth, Harness
     CUSTOM_HEADERS = "custom_headers"  # Finout, nOps, CloudZero, Cloudability
+    # OCI signs each request with an RSA private key identified by a fingerprint.
+    # There is no token to mint and no header to paste, so it is none of the
+    # above: the credential is a key file, and it never leaves the process.
+    API_KEY_SIGNING = "api_key_signing"  # OCI
 
 
 @dataclass
