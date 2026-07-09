@@ -1,6 +1,8 @@
 [theme]
+# Streamlit's own widget chrome. Identity colour, from brand.py -- never a
+# series colour. Chart palettes come from theme.py and are CVD-validated.
 base = "dark"
-primaryColor = "#22D3EE"
+primaryColor = "#4FB3F5"
 backgroundColor = "#0B1020"
 secondaryBackgroundColor = "#141B34"
 textColor = "#E6EAF5"

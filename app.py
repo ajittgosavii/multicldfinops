@@ -49,7 +49,7 @@ TABS = [
 
 def _sidebar() -> tuple[AppConfig, dict]:
     with st.sidebar:
-        st.markdown("### ◇ Command Center")
+        ui.sidebar_brand()
 
         # ---- Mode -------------------------------------------------------
         current = st.session_state.get("mode", load_config().mode)
@@ -135,8 +135,9 @@ def _masthead_right(ctx: DataContext) -> str:
     label = "LIVE" if live else "DEMO"
     rows = len(ctx.focus_df)
     conform = "FOCUS 1.2" if ctx.validation and ctx.validation.ok else "FOCUS (check)"
+    # The dot only pulses when data is genuinely being pulled from a provider.
     return (
-        f'{ui.pill(label, colour)} &nbsp; {ui.pill(conform)} &nbsp; '
+        f'{ui.pill(label, colour, live=live)} &nbsp; {ui.pill(conform)} &nbsp; '
         f'{ui.pill(f"{rows:,} charge rows")}'
     )
 

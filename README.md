@@ -1,4 +1,4 @@
-# Multi-Cloud FinOps Command Center
+# Infosys — Multi-Cloud FinOps Command Center
 
 An enterprise FinOps platform for **AWS, Azure and GCP** — VP/Director dashboards by
 application, showback/chargeback with shared-cost allocation, spend baselining, a
@@ -123,7 +123,11 @@ Effective Savings Rate   = (savings − cost to achieve) / on-demand-equivalent 
 Commitment Coverage %    = committed eligible spend / total eligible spend   (ListCost basis)
 Commitment Utilization % = used commitment / total commitment purchased
 Commitment Waste $       = EffectiveCost where CommitmentDiscountStatus == 'Unused'
-Cost of Waste            = commitment waste + usage waste (idle / orphaned / over-provisioned)
+Cost of Waste            = commitment waste + (monthly usage waste × months observed)
+                           usage waste = idle / orphaned / over-provisioned resources.
+                           The detectors report a monthly run-rate and commitment waste is
+                           a whole-window total, so one is scaled onto the other. Rate
+                           levers are NOT waste — they are savings not yet taken.
 Allocation Coverage %    = allocated cost / total cost
 Unit Cost                = total cost / business demand driver
 Variance $               = Actual − Budget            (positive = overrun)
@@ -164,7 +168,7 @@ It opens in Demo Mode. No credentials needed.
 2. Add secrets (**Manage app → Settings → Secrets**):
 
 ```toml
-# Optional: gate the app
+# Optional: the animated sign-in gate. Unset means no gate (local dev).
 APP_PASSWORD = "..."
 
 # Optional: AI Copilot. Without this the tab explains what it would have done.
@@ -275,6 +279,20 @@ store.py                pluggable SQLite/Postgres for scenarios and policies
 ---
 
 ## Design notes
+
+**Motion is functional, not decorative.** It does three jobs: orientation (a staggered
+entrance tells you the KPI row is one group and the charts below are another), change (a
+figure worth re-reading lifts on hover; a critical status pill breathes; the live-data dot
+blinks only when data is genuinely being pulled), and continuity (a short fade keeps a
+Streamlit rerun from reading as a page flash). It never animates a data mark's position or
+length, which would misstate a value mid-flight. Everything is pure CSS keyframes and
+inline SVG — `unsafe_allow_html` strips `<script>` — and every keyframe set ends at the
+resting style with `both` fill, so a browser that ignores an animation still gets the final
+state. All of it collapses under a single `prefers-reduced-motion: reduce` query.
+
+**Identity colour and data colour are separate modules.** `brand.py` owns the Infosys
+lockup, the login page and the mastheads; `theme.py` owns the CVD-validated categorical
+slots that encode meaning in charts. Mixing them is how a brand blue ends up meaning "AWS".
 
 The categorical palette is not chosen by taste. Slot order was picked by maximising the
 minimum adjacent colour distance under simulated colour-vision deficiency, then validated

@@ -230,19 +230,29 @@ def esr_components(df: pd.DataFrame) -> Dict[str, Optional[float]]:
 # ==========================================================================
 
 
-def cost_of_waste(df: pd.DataFrame, usage_waste: float = 0.0) -> float:
-    """Cost of Waste = commitment waste + usage waste.
+def months_observed(df: pd.DataFrame) -> float:
+    """Length of the charge window in months, floored at 1."""
+    if not len(df):
+        return 1.0
+    span = df["ChargePeriodStart"].max() - df["ChargePeriodStart"].min()
+    return max(span.days / 30.44, 1.0)
 
-    Commitment waste is computable from FOCUS alone (unused commitment rows).
-    Usage waste -- idle volumes, zombie IPs, parked-but-running non-prod --
-    requires the detectors in `optimize.py`, which pass their total in here.
+
+def cost_of_waste(df: pd.DataFrame, usage_waste_monthly: float = 0.0) -> float:
+    """Cost of Waste over the observed window = commitment waste + usage waste.
+
+    Both terms must span the same period or the number is meaningless.
+    `commitment_waste` sums unused-commitment rows across the whole window, but
+    the detectors in `optimize.py` report a **monthly** run-rate, so we scale
+    theirs up rather than silently adding a month to two years.
     """
-    return commitment_waste(df) + usage_waste
+    return commitment_waste(df) + usage_waste_monthly * months_observed(df)
 
 
-def waste_pct(df: pd.DataFrame, usage_waste: float = 0.0) -> Optional[float]:
+def waste_pct(df: pd.DataFrame, usage_waste_monthly: float = 0.0) -> Optional[float]:
+    """Cost of Waste as a share of spend over the same window."""
     total = total_spend(df)
-    r = _safe_div(cost_of_waste(df, usage_waste), total)
+    r = _safe_div(cost_of_waste(df, usage_waste_monthly), total)
     return None if r is None else r * 100.0
 
 
@@ -454,7 +464,9 @@ class ExecutiveKPIs:
     baseline_drift_pct: Optional[float]
 
 
-def executive_kpis(df: pd.DataFrame, usage_waste: float = 0.0) -> ExecutiveKPIs:
+def executive_kpis(df: pd.DataFrame, usage_waste_monthly: float = 0.0) -> ExecutiveKPIs:
+    """`usage_waste_monthly` is a monthly run-rate from `optimize.detect_all`;
+    everything else is a whole-window total. `cost_of_waste` reconciles them."""
     return ExecutiveKPIs(
         total_spend=total_spend(df),
         mom_pct=mom_delta_pct(df),
@@ -464,8 +476,8 @@ def executive_kpis(df: pd.DataFrame, usage_waste: float = 0.0) -> ExecutiveKPIs:
         coverage_pct=commitment_coverage_pct(df),
         utilization_pct=commitment_utilization_pct(df),
         commitment_waste=commitment_waste(df),
-        cost_of_waste=cost_of_waste(df, usage_waste),
-        waste_pct=waste_pct(df, usage_waste),
+        cost_of_waste=cost_of_waste(df, usage_waste_monthly),
+        waste_pct=waste_pct(df, usage_waste_monthly),
         allocation_coverage_pct=allocation_coverage_pct(df),
         chargeback_readiness=chargeback_readiness(allocation_coverage_pct(df)),
         baseline_drift_pct=baseline_drift_pct(df),

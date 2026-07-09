@@ -138,7 +138,7 @@ def _framework() -> None:
         rn = pd.DataFrame(
             [{"2025 name": k, "2026 name": v} for k, v in CAPABILITY_2026_RENAMES.items()]
         )
-        st.dataframe(rn, use_container_width=True, hide_index=True)
+        st.dataframe(rn, width="stretch", hide_index=True)
         st.markdown(
             "**Added in 2026:** " + ", ".join(CAPABILITY_2026_ADDED)
             + " -- bringing the total to 23 capabilities across the same four domains."
@@ -165,7 +165,7 @@ def _personas() -> None:
     core = pd.DataFrame(
         [{"Persona": k, "What they expect": v} for k, v in CORE_PERSONAS.items()]
     )
-    st.dataframe(core, use_container_width=True, hide_index=True)
+    st.dataframe(core, width="stretch", hide_index=True)
     st.markdown(
         "**Allied personas** (they intersect FinOps rather than own it): "
         + ", ".join(ALLIED_PERSONAS) + "."
@@ -187,7 +187,7 @@ def _scopes_forecast() -> None:
         )
         st.dataframe(
             fc,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={"Max variance %": st.column_config.NumberColumn(format="%.0f%%")},
         )
@@ -214,7 +214,7 @@ def _focus_schema() -> None:
         if (not sel or c.feature_level in sel)
     ]
     frame = pd.DataFrame(rows)
-    st.dataframe(frame, use_container_width=True, hide_index=True)
+    st.dataframe(frame, width="stretch", hide_index=True)
     st.caption(f"{len(frame)} of {len(focus.SCHEMA)} columns shown.")
     ui.table_view(frame, key="ref_schema", label="Schema table view")
 
@@ -254,7 +254,7 @@ def _canonical_tags() -> None:
         {"Canonical key": t, "Aliases folded in": ", ".join(focus.TAG_ALIASES.get(t, [])) or "—"}
         for t in focus.CANONICAL_TAGS
     ]
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
     st.caption(
         "FOCUS does not dictate which tags exist -- that is an enterprise decision. "
         "These are the keys this platform normalises onto."
@@ -266,7 +266,7 @@ def _focus_versions() -> None:
     with left:
         ui.section("FOCUS version history", "")
         hist = pd.DataFrame(_FOCUS_HISTORY, columns=["Version", "Date", "What changed"])
-        st.dataframe(hist, use_container_width=True, hide_index=True)
+        st.dataframe(hist, width="stretch", hide_index=True)
         st.caption(
             f"We model {focus.FOCUS_CANONICAL_VERSION} as canonical because that is "
             "what AWS/Azure/GCP actually emit today; 1.3 columns are carried optional."
@@ -274,7 +274,7 @@ def _focus_versions() -> None:
     with right:
         ui.section("Native FOCUS emitters", "")
         em = pd.DataFrame(_FOCUS_EMITTERS, columns=["Cloud / platform", "Product", "Detail"])
-        st.dataframe(em, use_container_width=True, hide_index=True)
+        st.dataframe(em, width="stretch", hide_index=True)
 
 
 def _kpi_reference() -> None:
@@ -287,7 +287,7 @@ def _kpi_reference() -> None:
     )
     st.dataframe(
         frame,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={"Source": st.column_config.LinkColumn("Source", display_text="finops.org")},
     )

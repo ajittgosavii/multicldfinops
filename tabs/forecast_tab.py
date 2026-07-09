@@ -225,7 +225,7 @@ def render(ctx: DataContext) -> None:
         "forward flat beyond the funded year -- the collision is the point.",
     )
     fig = charts.forecast_fan(history=fc.history, forecast=fc.forecast, budget=budget_line, mode=mode, height=430)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     for note in fc.notes[:3]:
         st.caption(f"· {note}")
 
@@ -250,7 +250,7 @@ def render(ctx: DataContext) -> None:
             {"Metric": "sMAPE", "Value": ui.pct(fc.accuracy.get("smape"))},
             {"Metric": "Backtest folds", "Value": str(fc.accuracy.get("folds", 0))},
         ]
-        st.dataframe(pd.DataFrame(acc_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(acc_rows), width="stretch", hide_index=True)
         ui.callout(
             "**WAPE is the headline, not MAPE.** WAPE is dollar-weighted -- it divides the total "
             "absolute error by total actual spend -- so a small service whose actual rounds to zero "
@@ -269,7 +269,7 @@ def render(ctx: DataContext) -> None:
                     "This estate": "◆ here" if in_band else "",
                 }
             )
-        st.dataframe(pd.DataFrame(band_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(band_rows), width="stretch", hide_index=True)
         st.caption(
             "Foundation forecast-variance maturity bands. "
             "https://www.finops.org/framework/capabilities/forecasting/"
@@ -312,14 +312,14 @@ def render(ctx: DataContext) -> None:
                 st.plotly_chart(
                     charts.forecast_fan(history=fc.history, forecast=fc.forecast, budget=budget_line,
                                         mode=mode, height=300),
-                    use_container_width=True,
+                    width="stretch",
                 )
             with cr:
                 st.markdown("**With commitment-expiry cliffs**")
                 st.plotly_chart(
                     charts.forecast_fan(history=fc.history, forecast=cliff_frame, budget=budget_line,
                                         mode=mode, height=300),
-                    use_container_width=True,
+                    width="stretch",
                 )
             st.caption("Both panels share the same budget line, so the cliff-driven divergence reads directly.")
         ui.table_view(
@@ -343,7 +343,7 @@ def render(ctx: DataContext) -> None:
         edited = st.data_editor(
             seed,
             num_rows="dynamic",
-            use_container_width=True,
+            width="stretch",
             key="fc_scenario_editor",
             column_config={
                 "period": st.column_config.TextColumn("Period (YYYY-MM)"),
@@ -378,7 +378,7 @@ def render(ctx: DataContext) -> None:
         st.plotly_chart(
             charts.forecast_fan(history=fc.history, forecast=scenario_frame, budget=budget_line,
                                 mode=mode, height=360),
-            use_container_width=True,
+            width="stretch",
         )
         st.caption("Dashed line and band are the driver-adjusted forecast; the dotted line is the budget.")
         tbl = adj[["period", "cost", "cost_adjusted"]].copy()
@@ -403,7 +403,7 @@ def render(ctx: DataContext) -> None:
         v["label"] = pd.to_datetime(v["period"]).dt.strftime("%b %y")
         st.plotly_chart(
             charts.variance_bars(v["label"].tolist(), v["variance_abs"].tolist(), mode=mode, height=300),
-            use_container_width=True,
+            width="stretch",
         )
         ui.table_view(var, key="fc_variance", label="Budget variance table view")
 
@@ -428,7 +428,7 @@ def render(ctx: DataContext) -> None:
         st.plotly_chart(
             charts.forecast_fan(history=actual_line, forecast=empty_forecast, budget=budget_cum,
                                 mode=mode, height=320),
-            use_container_width=True,
+            width="stretch",
         )
         st.caption("Solid = cumulative actual, dotted = cumulative budget.")
         ui.table_view(bd, key="fc_burndown", label="Burn-down table view")
@@ -447,7 +447,7 @@ def render(ctx: DataContext) -> None:
     else:
         st.plotly_chart(
             charts.variance_waterfall(bridge_labels, bridge_deltas, mode=mode, height=340),
-            use_container_width=True,
+            width="stretch",
         )
         st.caption(bridge_note)
         ui.table_view(
@@ -482,7 +482,7 @@ def render(ctx: DataContext) -> None:
                 continue
             st.plotly_chart(
                 charts.forecast_fan(history=fc_c.history, forecast=fc_c.forecast, mode=mode, height=240),
-                use_container_width=True,
+                width="stretch",
                 config={"displayModeBar": False},
             )
             st.caption(
@@ -509,7 +509,7 @@ def render(ctx: DataContext) -> None:
         )
         st.dataframe(
             show,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={
                 "Month-to-date": st.column_config.NumberColumn(format="$%.0f"),

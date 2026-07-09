@@ -147,7 +147,7 @@ def render(ctx: DataContext) -> None:
         text=[f"  ${last['unit_cost']:,.2f}"], textposition="middle right",
         textfont=dict(color=s.text_primary, size=11), showlegend=False, hoverinfo="skip",
     ))
-    st.plotly_chart(fig1, use_container_width=True)
+    st.plotly_chart(fig1, width="stretch")
     ui.table_view(series, key="ue_unit_series", label="Unit cost table view")
 
     # ---------------------------------------------------------------
@@ -172,7 +172,7 @@ def render(ctx: DataContext) -> None:
             line=dict(color=cmap[name], width=charts.LINE_WIDTH),
             hovertemplate=name + "  %{y:.1f}<extra></extra>",
         ))
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width="stretch")
     st.caption("Cost above volume means the unit cost is rising -- you are paying more per unit of business delivered.")
     ui.table_view(idx, key="ue_indexed", label="Indexed cost vs volume table view")
 
@@ -199,7 +199,7 @@ def render(ctx: DataContext) -> None:
         by_app = by_app.sort_values("cost", ascending=False).reset_index(drop=True)
         by_app = by_app.rename(columns={"tag_application": "Application", "cost": f"Cost ({latest_period:%b %Y})", "unit_cost": f"$ per {metric.lower()}"})
         st.dataframe(
-            by_app, use_container_width=True, hide_index=True,
+            by_app, width="stretch", hide_index=True,
             column_config={
                 f"Cost ({latest_period:%b %Y})": st.column_config.NumberColumn(format="$%.0f"),
                 f"$ per {metric.lower()}": st.column_config.NumberColumn(format="$%.4f"),
@@ -236,7 +236,7 @@ def render(ctx: DataContext) -> None:
                 line=dict(color=s.categorical[3], width=charts.LINE_WIDTH),
                 hovertemplate="%{x|%b %Y}  $%{y:,.0f}<extra></extra>",
             ))
-            st.plotly_chart(fig3, use_container_width=True)
+            st.plotly_chart(fig3, width="stretch")
         with colt:
             if has_qty and ai_m["cost_per_1k"].notna().any():
                 latest_cp = float(ai_m["cost_per_1k"].dropna().iloc[-1])

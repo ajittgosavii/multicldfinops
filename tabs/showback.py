@@ -112,7 +112,7 @@ def render(ctx: DataContext) -> None:
         n = max(len(targets), 1)
         seed = pd.DataFrame({dim_label: targets, "Percentage": [round(100.0 / n, 4)] * len(targets)})
         edited = st.data_editor(
-            seed, key="sb_fixed_editor", hide_index=True, use_container_width=True,
+            seed, key="sb_fixed_editor", hide_index=True, width="stretch",
             column_config={"Percentage": st.column_config.NumberColumn(min_value=0.0, max_value=100.0, step=0.5, format="%.2f")},
             disabled=[dim_label],
         )
@@ -171,7 +171,7 @@ def render(ctx: DataContext) -> None:
         )
         st.plotly_chart(
             charts.stacked_bar(long, dimcol, "component", "amount", mode=mode, height=360),
-            use_container_width=True,
+            width="stretch",
         )
         ui.table_view(long, key="sb_composition", label="Composition table view")
 
@@ -179,7 +179,7 @@ def render(ctx: DataContext) -> None:
         ui.section("Fully-loaded cost", "Direct + allocations, ranked. One series, one colour.")
         st.plotly_chart(
             charts.ranked_bar(folded[dimcol].astype(str).tolist(), folded["total_cost"].tolist(), mode=mode, height=360),
-            use_container_width=True,
+            width="stretch",
         )
         ui.table_view(
             alloc.rename(columns={dimcol: dim_label}), key="sb_ranked", label="Allocation table view",
@@ -207,7 +207,7 @@ def render(ctx: DataContext) -> None:
         wide = wide.sort_values("Total", ascending=False).reset_index().rename(columns={dimcol: dim_label})
         money_cols = ["Direct", "Shared allocation", "Untagged allocation", "Total"]
         st.dataframe(
-            wide, use_container_width=True, hide_index=True,
+            wide, width="stretch", hide_index=True,
             column_config={c: st.column_config.NumberColumn(format="$%.0f") for c in money_cols},
         )
         st.download_button(
@@ -242,7 +242,7 @@ def render(ctx: DataContext) -> None:
     else:
         cmp = cmp.sort_values("Proportional", ascending=False).reset_index().rename(columns={dimcol: dim_label})
         st.dataframe(
-            cmp, use_container_width=True, hide_index=True,
+            cmp, width="stretch", hide_index=True,
             column_config={c: st.column_config.NumberColumn(format="$%.0f") for c in ["Even split", "Proportional", "Fixed %"]},
         )
         st.caption("Each column is the shared pool this target absorbs under that rule -- direct spend is unchanged.")

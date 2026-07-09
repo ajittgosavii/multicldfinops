@@ -150,7 +150,7 @@ def render(ctx: DataContext) -> None:
     else:
         st.plotly_chart(
             charts.anomaly_scatter(total, "period", "cost", "is_anomaly", mode=mode, height=320),
-            use_container_width=True,
+            width="stretch",
         )
         ui.table_view(total, key="an_total", label="Estate-total detection table view")
 
@@ -182,7 +182,7 @@ def render(ctx: DataContext) -> None:
                 st.markdown(f"**{value}**")
                 st.plotly_chart(
                     charts.anomaly_scatter(annotated, "period", "cost", "is_anomaly", mode=mode, height=240),
-                    use_container_width=True,
+                    width="stretch",
                     config={"displayModeBar": False},
                 )
 

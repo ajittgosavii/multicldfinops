@@ -110,10 +110,23 @@ def test_roadmap_cumulative_monotonic(opps):
 
 
 def test_usage_waste_feeds_kpi(demo, opps):
-    usage_waste = optimize.usage_waste_total(opps)
-    assert usage_waste > 0
-    cow = kpi.cost_of_waste(demo, usage_waste=usage_waste)
-    assert cow == pytest.approx(kpi.commitment_waste(demo) + usage_waste, rel=1e-9)
+    """`usage_waste_total` is a monthly run-rate; `commitment_waste` is a
+    whole-window total. `cost_of_waste` must reconcile the two rather than
+    adding one month of usage waste to two years of commitment waste."""
+    usage_waste_monthly = optimize.usage_waste_total(opps)
+    assert usage_waste_monthly > 0
+
+    months = kpi.months_observed(demo)
+    assert months > 12, "the demo estate spans about two years"
+
+    cow = kpi.cost_of_waste(demo, usage_waste_monthly=usage_waste_monthly)
+    expected = kpi.commitment_waste(demo) + usage_waste_monthly * months
+    assert cow == pytest.approx(expected, rel=1e-9)
+
+    # The scaled figure must dominate the naive sum -- that mismatch is the bug
+    # this test exists to prevent from coming back.
+    naive = kpi.commitment_waste(demo) + usage_waste_monthly
+    assert cow > naive * 3
 
 
 def test_savings_by_category(opps):

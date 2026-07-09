@@ -167,7 +167,7 @@ def _offline_panel(ctx: DataContext, agents) -> None:
             for t in tools
         ]
         frame = pd.DataFrame(rows)
-        st.dataframe(frame, use_container_width=True, hide_index=True)
+        st.dataframe(frame, width="stretch", hide_index=True)
         st.caption(f"{len(tools)} tool(s) live.")
     if missing:
         ui.callout(
@@ -191,7 +191,7 @@ def _chat(ctx: DataContext, agent_graph, persona: str) -> None:
     chip_cols = st.columns(len(_SUGGESTIONS))
     for i, q in enumerate(_SUGGESTIONS):
         with chip_cols[i]:
-            if st.button(q, key=f"copilot_chip_{i}", use_container_width=True):
+            if st.button(q, key=f"copilot_chip_{i}", width="stretch"):
                 st.session_state["copilot_pending"] = q
 
     # Replay the transcript.

@@ -71,9 +71,9 @@ def render(ctx: DataContext) -> None:
     # ---------------------------------------------------------------
     # Header KPI row
     # ---------------------------------------------------------------
-    usage_waste = optimize.usage_waste_total(opps)
-    cost_of_waste = kpi.cost_of_waste(df, usage_waste)
-    waste_pct = kpi.waste_pct(df, usage_waste)
+    usage_waste_monthly = optimize.usage_waste_total(opps)
+    cost_of_waste = kpi.cost_of_waste(df, usage_waste_monthly)
+    waste_pct = kpi.waste_pct(df, usage_waste_monthly)
     esr = optimize.effective_savings_rate_uplift(df, opps)
     total_annual = float(frame["annual_savings"].sum())
 
@@ -114,7 +114,7 @@ def render(ctx: DataContext) -> None:
     if len(cats):
         st.plotly_chart(
             charts.ranked_bar(cats["category"].tolist(), cats["annual_savings"].tolist(), mode=mode, height=280),
-            use_container_width=True,
+            width="stretch",
         )
         ui.table_view(cats, key="opt_cats", label="Savings by category table view")
 
@@ -159,7 +159,7 @@ def render(ctx: DataContext) -> None:
     )
     st.dataframe(
         show,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={
             "Monthly": st.column_config.NumberColumn(format="$%.0f"),
@@ -197,7 +197,7 @@ def render(ctx: DataContext) -> None:
     with ed_l:
         st.markdown(f"**Evidence** — {o.scope} ({o.cloud})")
         ev_rows = [{"Signal": k, "Value": str(v)} for k, v in o.evidence.items()]
-        st.dataframe(pd.DataFrame(ev_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(ev_rows), width="stretch", hide_index=True)
         st.caption(
             f"Resources implicated: **{o.resource_count}**"
             + (f" · e.g. {', '.join(o.resource_ids)}" if o.resource_ids else "")
@@ -219,7 +219,7 @@ def render(ctx: DataContext) -> None:
             {"Field": "Prerequisites", "Value": lv.prerequisites},
             {"Field": "Detection rule", "Value": lv.detection},
         ]
-        st.dataframe(pd.DataFrame(lever_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(lever_rows), width="stretch", hide_index=True)
         st.markdown(f"[Source: provider documentation]({lv.source_url})")
 
     # ---------------------------------------------------------------
@@ -234,7 +234,7 @@ def render(ctx: DataContext) -> None:
     else:
         st.plotly_chart(
             charts.sparkline(road["cumulative_annual_savings"].tolist(), mode=mode, height=90),
-            use_container_width=True,
+            width="stretch",
             config={"displayModeBar": False},
         )
         st.caption(
@@ -250,7 +250,7 @@ def render(ctx: DataContext) -> None:
         wave_summary["Wave"] = wave_summary["Wave"].map({1: "Wave 1 · quick wins", 2: "Wave 2 · planned", 3: "Wave 3 · strategic"})
         st.dataframe(
             wave_summary,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={"Annual savings": st.column_config.NumberColumn(format="$%.0f")},
         )
@@ -296,7 +296,7 @@ def render(ctx: DataContext) -> None:
     )
     st.dataframe(
         display,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={"Source": st.column_config.LinkColumn("Source", display_text="docs")},
     )

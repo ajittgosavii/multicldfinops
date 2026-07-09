@@ -182,7 +182,7 @@ def render(ctx: DataContext) -> None:
             line=dict(color=s.categorical[2], width=charts.LINE_WIDTH),
             hovertemplate="%{x|%d %b}  $%{y:,.0f}<extra></extra>",
         ))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     ui.table_view(plotd, key="bl_daily", label="Daily spend table view")
 
     if adjust and idx:

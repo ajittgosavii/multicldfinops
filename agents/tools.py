@@ -222,14 +222,17 @@ def make_tools(ctx: DataContext) -> List:
         allocation coverage % and chargeback readiness, and baseline drift %.
         Usage waste is folded in from the optimizer when that engine is present.
         """
-        usage_waste = 0.0
+        # `usage_waste_total` is a MONTHLY run-rate over the waste levers only.
+        # Summing annual savings across every opportunity would fold in the rate
+        # levers (Savings Plans, CUDs) -- those are savings not yet taken, not
+        # money already burned -- and inflate Cost of Waste several-fold.
+        usage_waste_monthly = 0.0
         if _optimize is not None:
             try:
-                opps = _optimize.detect_all(df)
-                usage_waste = float(sum(_annual_savings(o) for o in opps))
+                usage_waste_monthly = float(_optimize.usage_waste_total(_optimize.detect_all(df)))
             except Exception:
-                usage_waste = 0.0
-        k = kpi.executive_kpis(df, usage_waste=usage_waste)
+                usage_waste_monthly = 0.0
+        k = kpi.executive_kpis(df, usage_waste_monthly=usage_waste_monthly)
         d = dataclasses.asdict(k)
         for key, val in list(d.items()):
             if isinstance(val, float):

@@ -8,7 +8,11 @@
 # ---------------------------------------------------------------------------
 
 # --- Core app ---------------------------------------------------------------
-streamlit>=1.40,<2
+# Floor is 1.59, the version this was verified against. The login card is a
+# *keyed* container (`st.container(key=...)` -> `.st-key-*`), which is the only
+# way to wrap Streamlit widgets in styled glass, and every element now takes
+# `width=` rather than the removed `use_container_width=`.
+streamlit>=1.59,<2
 pandas>=2.2,<3
 numpy>=1.26,<3
 plotly>=5.24,<7

@@ -39,7 +39,9 @@ def _safe(fn, default=None):
         return default
 
 
-def _usage_waste(df: pd.DataFrame) -> float:
+def _usage_waste_monthly(df: pd.DataFrame) -> float:
+    """Monthly run-rate of detectable usage waste. `kpi.cost_of_waste` scales it
+    to the observed window before adding commitment waste."""
     try:
         import optimize
 
@@ -63,8 +65,8 @@ def render(ctx: DataContext) -> None:
         ui.callout("No charge rows in the current selection. Widen the filters above.")
         return
 
-    usage_waste = _usage_waste(df)
-    k = kpi.executive_kpis(df, usage_waste=usage_waste)
+    usage_waste_monthly = _usage_waste_monthly(df)
+    k = kpi.executive_kpis(df, usage_waste_monthly=usage_waste_monthly)
 
     # ---------------------------------------------------------------
     # Hero + the KPI row
@@ -90,7 +92,7 @@ def render(ctx: DataContext) -> None:
         if len(monthly) > 2:
             st.plotly_chart(
                 charts.sparkline(monthly["cost"].tolist(), mode=mode, height=96),
-                use_container_width=True,
+                width="stretch",
                 config={"displayModeBar": False},
             )
             st.caption(
@@ -110,6 +112,15 @@ def render(ctx: DataContext) -> None:
         "good" if (k.allocation_coverage_pct or 0) >= 90
         else "warning" if (k.allocation_coverage_pct or 0) >= 80
         else "critical"
+    )
+    # Industry surveys put wasted IaaS/PaaS spend at ~27-32%; mature FinOps
+    # practices run 20-25%. Anything under 10% is genuinely good, so the tile
+    # must be able to say so rather than defaulting to a warning forever.
+    waste_status = (
+        "critical" if (k.waste_pct or 0) > 20
+        else "serious" if (k.waste_pct or 0) > 15
+        else "warning" if (k.waste_pct or 0) > 10
+        else "good"
     )
 
     ui.tile_row(
@@ -135,7 +146,7 @@ def render(ctx: DataContext) -> None:
                 label="Cost of waste",
                 value=ui.money(k.cost_of_waste),
                 sub=f"{ui.pct(k.waste_pct)} of spend",
-                status="critical" if (k.waste_pct or 0) > 15 else "warning",
+                status=waste_status,
             ),
             dict(
                 label="Allocation coverage",
@@ -183,7 +194,7 @@ def render(ctx: DataContext) -> None:
             mode=mode,
             height=420,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         c1, c2, c3, c4 = st.columns(4)
         wape = fc.accuracy.get("wape")
@@ -232,7 +243,7 @@ def render(ctx: DataContext) -> None:
         if len(by_cloud):
             st.plotly_chart(
                 charts.stacked_area(by_cloud, "period", "ProviderName", "cost", mode=mode, height=330),
-                use_container_width=True,
+                width="stretch",
             )
             ui.table_view(by_cloud, key="exec_by_cloud", label="Cloud spend table view")
 
@@ -248,7 +259,7 @@ def render(ctx: DataContext) -> None:
         values = [float(v) for _, v in folded]
         st.plotly_chart(
             charts.ranked_bar(labels, values, mode=mode, height=330),
-            use_container_width=True,
+            width="stretch",
         )
         ui.table_view(app_spend.rename(columns={"tag_application": "Application", "EffectiveCost": "Cost"}),
                       key="exec_apps", label="Application table view")
@@ -271,7 +282,7 @@ def render(ctx: DataContext) -> None:
         with vc1:
             st.plotly_chart(
                 charts.variance_bars(var["cloud"].tolist(), var["variance_abs"].tolist(), mode=mode, height=300),
-                use_container_width=True,
+                width="stretch",
             )
         with vc2:
             for _, r in var.iterrows():
@@ -313,7 +324,7 @@ def render(ctx: DataContext) -> None:
                     "confidence": "Confidence",
                 }
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={
                 "Annual savings": st.column_config.NumberColumn(format="$%.0f"),

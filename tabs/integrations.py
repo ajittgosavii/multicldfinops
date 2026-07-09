@@ -221,7 +221,7 @@ def _catalog(specs) -> None:
     )
     st.dataframe(
         frame,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={
             "Docs": st.column_config.LinkColumn("Docs", display_text="docs"),
@@ -333,7 +333,7 @@ def _uploader(ctx: DataContext) -> None:
 
     if not uploaded.focus_df.empty:
         st.caption(f"Preview -- first rows of {len(uploaded.focus_df):,} ingested.")
-        st.dataframe(_arrow_safe(uploaded.focus_df.head(15)), use_container_width=True, hide_index=True)
+        st.dataframe(_arrow_safe(uploaded.focus_df.head(15)), width="stretch", hide_index=True)
 
 
 def _arrow_safe(df: pd.DataFrame) -> pd.DataFrame:
@@ -366,7 +366,7 @@ def _rate_limits() -> None:
         ("ServiceNow", "CCM cost table names are not publicly documented; enumerate `sys_db_object` in the customer instance."),
     ]
     frame = pd.DataFrame(rows, columns=["Vendor", "Limit / gotcha"])
-    st.dataframe(frame, use_container_width=True, hide_index=True)
+    st.dataframe(frame, width="stretch", hide_index=True)
     ui.table_view(frame, key="int_rate_limits", label="Rate limits table view")
 
 

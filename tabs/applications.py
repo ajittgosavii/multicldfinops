@@ -143,7 +143,7 @@ def render(ctx: DataContext) -> None:
             agg["treemap"], path_cols=["ProviderName", "tag_application"],
             value_col="EffectiveCost", colour_by="ProviderName", mode=mode, height=460,
         ),
-        use_container_width=True,
+        width="stretch",
     )
     tm_table = (
         agg["treemap"].groupby(["ProviderName", "tag_application"], as_index=False, observed=True)["EffectiveCost"]
@@ -168,7 +168,7 @@ def render(ctx: DataContext) -> None:
         folded = folded.groupby(["period", "tag_application"], as_index=False, observed=True)["cost"].sum()
         st.plotly_chart(
             charts.stacked_area(folded, "period", "tag_application", "cost", mode=mode, height=360),
-            use_container_width=True,
+            width="stretch",
         )
         ui.table_view(folded, key="apps_by_month", label="Application-by-month table view")
 
@@ -188,7 +188,7 @@ def render(ctx: DataContext) -> None:
                 folded_bu["EffectiveCost"].tolist(),
                 mode=mode, height=360,
             ),
-            use_container_width=True,
+            width="stretch",
         )
         ui.table_view(
             folded_bu.rename(columns={"tag_business_unit": "Business unit", "EffectiveCost": "Cost"}),
@@ -214,7 +214,7 @@ def render(ctx: DataContext) -> None:
         ui.callout("Not enough application-month coverage to draw a heatmap for this selection.")
     else:
         st.plotly_chart(charts.heatmap(matrix, mode=mode, height=420, colourbar_title="EffectiveCost"),
-                        use_container_width=True)
+                        width="stretch")
         ui.table_view(matrix.reset_index(), key="apps_heatmap", label="Heatmap table view")
 
     # ---------------------------------------------------------------
@@ -265,7 +265,7 @@ def render(ctx: DataContext) -> None:
             g = g.groupby(dim, as_index=False, observed=True)["EffectiveCost"].sum().sort_values("EffectiveCost", ascending=False)
             st.plotly_chart(
                 charts.ranked_bar(g[dim].astype(str).tolist(), g["EffectiveCost"].tolist(), mode=mode, height=260),
-                use_container_width=True,
+                width="stretch",
             )
             ui.table_view(g.rename(columns={dim: title, "EffectiveCost": "Cost"}), key=key, label=f"{title} table view")
 
@@ -276,6 +276,6 @@ def render(ctx: DataContext) -> None:
     trend["application"] = app
     st.plotly_chart(
         charts.stacked_area(trend, "period", "application", "cost", mode=mode, height=280),
-        use_container_width=True,
+        width="stretch",
     )
     ui.table_view(trend[["period", "cost"]], key="apps_d_trend", label="Trend table view")

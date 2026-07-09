@@ -122,7 +122,7 @@ def render(ctx: DataContext) -> None:
                 height=320,
                 value_prefix="",
             ),
-            use_container_width=True,
+            width="stretch",
         )
         st.caption("Values are coverage %, not dollars.")
     with right:
@@ -173,7 +173,7 @@ def render(ctx: DataContext) -> None:
                     "status": "Status",
                 }
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={
                 "Coverage %": st.column_config.NumberColumn(format="%.1f%%"),
@@ -238,7 +238,7 @@ def _worklist(df: pd.DataFrame, by: str, title: str, mode: str, key: str) -> Non
     values = [float(v) for v in wl["cost"].tolist()][:10]
     st.plotly_chart(
         charts.ranked_bar(labels, values, mode=mode, height=300),
-        use_container_width=True,
+        width="stretch",
     )
     ui.table_view(
         wl.rename(columns={by: by, "cost": "Untagged cost", "pct_of_untagged": "% of untagged"}),
@@ -384,4 +384,4 @@ def _policy_panel() -> None:
             for p in policies
         ]
     )
-    st.dataframe(frame, use_container_width=True, hide_index=True)
+    st.dataframe(frame, width="stretch", hide_index=True)
