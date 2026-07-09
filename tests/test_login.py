@@ -86,3 +86,48 @@ def test_proof_strip_counts_real_things() -> None:
     points = dict((label, n) for n, label in ui._proof_points())
     assert points["connectors"] == str(len(connectors.REGISTRY))
     assert points["levers"] == str(len(optimize.LEVERS))
+
+
+def test_preview_shows_the_gate_without_a_password() -> None:
+    """`?login=preview` renders the sign-in page on an ungated deployment so it
+    can be seen and screenshotted. It must be unmistakably a preview."""
+    os.environ.pop("APP_PASSWORD", None)
+    os.environ["FINOPS_MODE"] = "demo"
+    at = AppTest.from_file(APP, default_timeout=300)
+    at.query_params["login"] = "preview"
+    at.run()
+
+    assert not at.exception
+    body = " ".join(m.value for m in at.markdown)
+    assert "Preview" in body, "the card must say it is a preview"
+    assert "Total amortised spend" not in body, "dashboard must not render behind it"
+    # It offers no password field -- there is nothing to check.
+    assert not at.text_input
+
+
+def test_preview_never_pretends_to_authenticate() -> None:
+    """With no password configured the gate cannot verify anything. Continuing
+    is explicit, and the caption says sign-in is disabled."""
+    os.environ.pop("APP_PASSWORD", None)
+    at = AppTest.from_file(APP, default_timeout=300)
+    at.query_params["login"] = "preview"
+    at.run()
+
+    captions = " ".join(c.value for c in at.caption)
+    assert "sign-in is disabled" in captions
+    assert "authenticated" not in at.session_state
+
+    at.button[0].click().run()
+    assert at.session_state["authenticated"] is True
+    body = " ".join(m.value for m in at.markdown)
+    assert "Total amortised spend" in body
+
+
+def test_gate_enabled_reflects_the_secret() -> None:
+    import ui
+
+    os.environ.pop("APP_PASSWORD", None)
+    assert ui.gate_enabled() is False
+    os.environ["APP_PASSWORD"] = "x"
+    assert ui.gate_enabled() is True
+    os.environ.pop("APP_PASSWORD", None)

@@ -492,14 +492,36 @@ def _sparks(n: int = 16) -> str:
     return "".join(out)
 
 
+def gate_enabled() -> bool:
+    return bool(_expected_password())
+
+
+def _preview_requested() -> bool:
+    """`?login=preview` renders the gate with no password configured.
+
+    A password gate cannot gate anything when there is no password, so this
+    never authenticates -- it exists so the sign-in page can be seen and
+    screenshotted on an ungated deployment. The card says so on its face rather
+    than implying a security boundary that is not there.
+    """
+    try:
+        return st.query_params.get("login") == "preview"
+    except Exception:
+        return False
+
+
 def require_login() -> bool:
     """Password gate. Returns True when the app may render.
 
-    With no `APP_PASSWORD` secret the gate is open -- that is the
-    local-development path. On Streamlit Cloud, set the secret.
+    With no `APP_PASSWORD` secret there is nothing to check, so the gate is open
+    -- that is the local-development path, and it is why the sign-in page does
+    not appear on a Streamlit Cloud app whose secret was never set. Add
+    `APP_PASSWORD` to the app's secrets and reboot.
     """
     expected = _expected_password()
-    if not expected:
+    preview = not expected and _preview_requested()
+
+    if not expected and not preview:
         return True
     if st.session_state.get("authenticated"):
         return True
@@ -536,13 +558,32 @@ def require_login() -> bool:
     _, mid, _ = st.columns([1, 1.15, 1])
     with mid:
         with st.container(key="mf_login_card"):
+            label = "Preview — no access key configured" if preview else "Access key"
             _md(
                 f'<div class="mf-card-head">{brand.mark_svg(46, uid="login")}'
                 f'<div><div class="mf-brandline mf-wordmark">{brand.BRAND}</div>'
                 f'<div class="mf-productline">{brand.PRODUCT}</div></div></div>'
                 f'<div class="mf-claims">{claim_spans}</div>'
-                f'<div class="mf-login-label">Access key</div>'
+                f'<div class="mf-login-label">{label}</div>'
             )
+
+            if preview:
+                # No password exists, so nothing can be verified. Say so, and let
+                # the viewer through -- pretending otherwise would be theatre.
+                st.caption(
+                    "This deployment has no `APP_PASSWORD` secret, so sign-in is "
+                    "disabled and this page is a preview. Set the secret and reboot "
+                    "to make it a real gate."
+                )
+                if st.button("Continue to the Command Center", type="primary", width="stretch"):
+                    st.session_state["authenticated"] = True
+                    st.rerun()
+                _md(
+                    f'<div class="mf-proof">{proof}</div>'
+                    f'<div class="mf-foot">{brand.BRAND} · FOCUS 1.2 conformant · '
+                    f"Demo data contains no customer information</div>"
+                )
+                return False
 
             pw = st.text_input(
                 "Password", type="password", label_visibility="collapsed", placeholder="Enter access password"

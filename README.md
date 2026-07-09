@@ -160,6 +160,12 @@ streamlit run app.py
 
 It opens in Demo Mode. No credentials needed.
 
+**The sign-in page only appears when an `APP_PASSWORD` secret exists.** A password gate
+with no password gates nothing, so without it the app opens straight to the dashboard —
+which is the right default for local development. To see the sign-in page on an ungated
+deployment, append `?login=preview`; it renders the page and says plainly that sign-in is
+disabled. To make it a real gate, set the secret and reboot.
+
 ---
 
 ## Deploy to Streamlit Cloud
