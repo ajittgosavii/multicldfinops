@@ -694,9 +694,11 @@ def slide_anomaly(prs, f: Facts):
     bullets(s, Inches(0.7), Inches(4.3), Inches(11.9), Inches(2.0), [
         "Modified z-score = 0.6745 × (x − median) / MAD, threshold ≈ 3.5 — robust to the very outliers it is hunting",
         "The test runs on the STL residual, so weekday, weekend and monthly cycles do not trip alerts",
+        "A point must be BOTH statistically odd AND financially material (≥25% deviation). The statistical test alone "
+        "flags a 5% wobble in a low-variance series, and an alert nobody can act on teaches people to ignore the channel",
         "Mirrors AWS Cost Anomaly Detection semantics: ≥10-day warm-up, dynamic thresholds rather than a static dollar line",
         "Severity is carried by an icon and a label as well as colour — never by colour alone",
-    ], 12)
+    ], 11.5)
     footer(s, SYNTHETIC)
 
 
@@ -732,11 +734,11 @@ def slide_connect(prs, f: Facts):
 def slide_agents(prs, f: Facts):
     s = blank(prs)
     header(s, "Agentic AI", "A supervisor and four specialists, grounded in your data",
-           "OpenAI + LangGraph — every figure quoted comes from a tool call against the FOCUS frame")
+           "Google ADK on Gemini — every figure quoted comes from a tool call against the FOCUS frame")
 
     rect(s, Inches(0.7), Inches(2.2), Inches(2.5), Inches(1.0), RGBColor(0xE8, 0xF1, 0xFD), AZURE)
     box(s, Inches(0.8), Inches(2.38), Inches(2.3), Inches(0.35), "Supervisor", 13, True, INK, PP_ALIGN.CENTER)
-    box(s, Inches(0.8), Inches(2.72), Inches(2.3), Inches(0.4), "routes on gpt-5-mini", 9.5, False, MUTED, PP_ALIGN.CENTER)
+    box(s, Inches(0.8), Inches(2.72), Inches(2.3), Inches(0.4), "routes on gemini-3.1-flash-lite", 8.5, False, MUTED, PP_ALIGN.CENTER)
 
     specialists = [
         ("Analyst", "Understand Usage & Cost", "spend, allocation, anomalies, coverage"),
@@ -753,11 +755,11 @@ def slide_agents(prs, f: Facts):
         y += Inches(0.86)
 
     bullets(s, Inches(0.7), Inches(5.75), Inches(11.9), Inches(1.3), [
-        "Twelve tools query the loaded FOCUS frame directly — the model never recites a number from memory",
-        "The supervisor routes on the cheap model and specialists reason on the strong one: the small-model-first lever, applied to ourselves",
-        "A whitelist of columns and operators guards the free-form query tool. No eval, ever",
-        "Loop-guarded at eight iterations; the whole tab degrades to an explanatory panel with no API key",
-    ], 11.5)
+        "Typed tools query the loaded FOCUS frame directly — the model never recites a number from memory, and it cannot write SQL",
+        "The coordinator routes on the cheap model and specialists reason on the strong one: the small-model-first lever, applied to ourselves",
+        "Specialists are held as tools, not sub-agents, so one voice writes the final answer for one persona",
+        "A column whitelist guards every query. No eval, ever. Loop-guarded, and it degrades to an explanation when the model is unreachable",
+    ], 11)
     footer(s)
 
 
@@ -766,11 +768,11 @@ def slide_agents_flow(prs, f: Facts):
     header(s, "Agentic AI", "What actually happens when you ask a question",
            'Worked example: "Why did spend rise last month, and what should we do?"')
     steps = [
-        ("1", "Route", "The supervisor reads the question and the asking persona, and picks a specialist via structured output — not free text. Cheap model, one call."),
+        ("1", "Route", "The coordinator reads the question and the asking persona, and calls the specialists it needs. Cheap model, one call."),
         ("2", "Call tools", "The Analyst calls get_spend_summary and get_anomalies against the real frame. It receives numbers, not prose."),
         ("3", "Hand back", "The specialist returns to the supervisor with its finding recorded in shared state. The supervisor decides whether another domain is needed."),
         ("4", "Escalate", "Spend rose and an anomaly is implicated, so the supervisor routes to the Optimizer, which calls find_optimization_opportunities and explain_lever."),
-        ("5", "Answer", "The supervisor stops and the answer streams token by token, citing the figure and the tool it came from, in outcome terms for a VP."),
+        ("5", "Answer", "The coordinator writes one answer, streamed token by token, citing the figure and the tool it came from, in outcome terms for a VP."),
     ]
     y = Inches(2.15)
     for n, title, body in steps:
@@ -783,9 +785,52 @@ def slide_agents_flow(prs, f: Facts):
         y += Inches(0.88)
 
     box(s, Inches(0.7), Inches(6.6), Inches(11.9), Inches(0.5),
-        "Guard rails: a hard stop at eight supervisor iterations, a recursion limit of 60, and a checkpointer keyed by a stable "
-        "thread id so the conversation survives a page rerun.", 10.5, False, MUTED)
+        "Guard rails: a bounded agent loop, a session keyed by a stable id so the conversation survives a page reload, and a tool layer "
+        "that returns a status rather than raising -- a tool that throws kills the agent.", 10.5, False, MUTED)
     footer(s)
+
+
+def slide_gcp(prs, f: Facts):
+    s = blank(prs)
+    header(s, "Target architecture", "Running this on Google Cloud",
+           "The engines are unchanged. What changes is the warehouse, the runtime and the model.")
+
+    left = [
+        ("Cloud Run", "FastAPI service, scales to zero. React client behind a load balancer and IAP."),
+        ("BigQuery", "The FOCUS 1.2 warehouse. Partitioned on ChargePeriodStart, clustered on cloud, "
+                     "service category and application."),
+        ("Cloud Run Job", "Nightly ingest through the same connectors, plus a materialised optimization snapshot."),
+        ("Gemini via Vertex", "Agents authenticate with the service account. No API key exists anywhere."),
+    ]
+    y = Inches(2.2)
+    for title, body in left:
+        rect(s, Inches(0.7), y, Inches(6.3), Inches(0.98), PAPER, RULE)
+        box(s, Inches(0.95), y + Inches(0.10), Inches(2.3), Inches(0.35), title, 12.5, True, AZURE)
+        box(s, Inches(0.95), y + Inches(0.42), Inches(5.8), Inches(0.5), body, 10, False, BODY)
+        y += Inches(1.08)
+
+    x = Inches(7.3)
+    box(s, x, Inches(2.2), Inches(5.3), Inches(0.35), "Why pandas forced the rebuild", 13, True, INK)
+    box(s, x, Inches(2.6), Inches(5.3), Inches(1.3),
+        "A utility estate at ~500k billing line-items a month is roughly 8 GB of memory over two years; "
+        "a large enterprise at 2M/month is ~31 GB. The demo loads the whole frame into one process. "
+        "It demonstrates well and it will not survive Con Edison. BigQuery is not optional.",
+        10.5, False, BODY)
+
+    box(s, x, Inches(4.05), Inches(5.3), Inches(0.35), "Three cost guards", 13, True, INK)
+    bullets(s, x, Inches(4.45), Inches(5.3), Inches(1.6), [
+        "A query with no period filter is rejected, not answered",
+        "Every job caps bytes billed — BigQuery fails rather than bills",
+        "Row-level detectors run nightly, never per request",
+    ], 10.5)
+
+    kpi_card(s, Inches(0.7), Inches(6.05), Inches(3.8), Inches(0.95), "Platform run cost",
+             "~$240 / month", "Cloud Run, BigQuery, Cloud SQL, LB", TEAL)
+    kpi_card(s, Inches(4.7), Inches(6.05), Inches(3.8), Inches(0.95), "Gemini",
+             "~$117 / month", "4,400 questions; ~$0.027 each", VIOLET)
+    kpi_card(s, Inches(8.7), Inches(6.05), Inches(3.9), Inches(0.95), "Share of estate",
+             "0.0005%", "of the $30.28M under management", GREEN)
+    footer(s, "Cost estimates. Gemini priced at gemini-3.5-flash / gemini-3.1-flash-lite list rates, July 2026.")
 
 
 def slide_integrations(prs, f: Facts):
@@ -860,6 +905,7 @@ def slide_next(prs, f: Facts):
         ("Your tagging standard", "So the canonical keys map to Con Edison's own — application, business unit, cost centre, environment, owner, project."),
         ("A business driver feed", "Customers served, kWh delivered, work orders closed. This is what turns a cloud bill into a unit cost a VP can defend."),
         ("An allocation policy decision", "Even split, proportional, or a fixed percentage for the shared platform pool. This is an accounting choice, not a technical one."),
+        ("A GCP project", "Plus a billing account and an identity provider for IAP. Vertex authenticates the agents through the service account, so no model API key is ever created."),
     ]
     y = Inches(2.85)
     for t, d in steps:
@@ -896,6 +942,7 @@ def build(out: str) -> str:
         slide_connect,
         slide_agents,
         slide_agents_flow,
+        slide_gcp,
         slide_integrations,
         slide_roadmap,
         slide_honesty,
