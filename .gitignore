@@ -33,3 +33,6 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Generated deliverables ARE committed (deck + diagrams).
+# Regenerate with: python tools/diagrams.py && python tools/build_deck.py

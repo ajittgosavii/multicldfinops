@@ -77,6 +77,49 @@ def resolve_mode(explicit: Optional[str] = None) -> Mode:
 # ==========================================================================
 
 
+@dataclass(frozen=True)
+class AccountBinding:
+    """One credentialed scope to pull billing data from.
+
+    A single binding usually covers *many* accounts already, because that is how
+    the providers aggregate billing:
+
+        AWS    Cost Explorer at the payer (management) account returns every
+               linked account, which lands in `SubAccountId`.
+        Azure  Billing-account scope covers every subscription beneath it;
+               subscription scope covers exactly one.
+        GCP    A billing account's BigQuery export carries every project it
+               pays for, which lands in `SubAccountId`.
+
+    A second binding is needed when there is a second *payer* -- a separate AWS
+    organization, a second Azure tenant or billing account, another GCP billing
+    account. A regulated utility typically has several, because the regulated
+    and unregulated entities cannot share a bill.
+
+    `secrets` overlay the global secret map for this binding only, so two AWS
+    payers each carry their own key pair. `options` are passed to the connector
+    constructor (an Azure `scope`, an AWS `profile`).
+    """
+
+    cloud: str
+    connector: str
+    name: str = ""
+    secrets: Tuple[Tuple[str, str], ...] = ()
+    options: Tuple[Tuple[str, Any], ...] = ()
+
+    @property
+    def label(self) -> str:
+        return self.name or f"{self.cloud} · {self.connector}"
+
+    @property
+    def secret_map(self) -> Dict[str, str]:
+        return dict(self.secrets)
+
+    @property
+    def option_map(self) -> Dict[str, Any]:
+        return dict(self.options)
+
+
 @dataclass
 class AppConfig:
     """Runtime configuration, sourced from Streamlit secrets or the environment.
@@ -96,16 +139,28 @@ class AppConfig:
     openai_model: str = "gpt-5"
     openai_model_fast: str = "gpt-5-mini"
 
-    # Which connector supplies each cloud in LIVE mode.
+    # Which connector supplies each cloud in LIVE mode. The simple path: one
+    # payer per cloud. `accounts` supersedes it when more than one is configured.
     connector_for: Dict[str, str] = field(
         default_factory=lambda: {"AWS": "aws_native", "Azure": "azure_native", "GCP": "gcp_native"}
     )
+    accounts: List[AccountBinding] = field(default_factory=list)
 
     database_url: Optional[str] = None
 
     @property
     def ai_enabled(self) -> bool:
         return bool(self.openai_api_key)
+
+    def bindings(self) -> List[AccountBinding]:
+        """Every scope to pull, explicit or derived.
+
+        With no `[[accounts]]` block we synthesise one binding per cloud from
+        `connector_for`, which is exactly the old single-payer behaviour.
+        """
+        if self.accounts:
+            return list(self.accounts)
+        return [AccountBinding(cloud=c, connector=k, name=f"{c} (default)") for c, k in sorted(self.connector_for.items())]
 
 
 def _secret(key: str, default: Optional[str] = None) -> Optional[str]:
@@ -120,6 +175,50 @@ def _secret(key: str, default: Optional[str] = None) -> Optional[str]:
     return os.environ.get(key, default)
 
 
+def _load_account_bindings() -> List[AccountBinding]:
+    """Parse the `[[accounts]]` array from Streamlit secrets.
+
+        [[accounts]]
+        cloud     = "AWS"
+        name      = "ConEd Regulated payer"
+        connector = "aws_native"
+        [accounts.secrets]
+        AWS_ACCESS_KEY_ID     = "..."
+        AWS_SECRET_ACCESS_KEY = "..."
+
+    A malformed entry is skipped rather than fatal -- one bad binding must not
+    take down the estate. Secret VALUES are never echoed anywhere.
+    """
+    try:
+        import streamlit as st
+
+        raw = st.secrets.get("accounts")
+    except Exception:
+        raw = None
+    if not raw:
+        return []
+
+    out: List[AccountBinding] = []
+    for entry in raw:
+        try:
+            cloud = str(entry["cloud"])
+            connector = str(entry["connector"])
+        except Exception:
+            continue
+        secrets = {str(k): str(v) for k, v in dict(entry.get("secrets", {})).items()}
+        options = {str(k): v for k, v in dict(entry.get("options", {})).items()}
+        out.append(
+            AccountBinding(
+                cloud=cloud,
+                connector=connector,
+                name=str(entry.get("name", "")),
+                secrets=tuple(sorted(secrets.items())),
+                options=tuple(sorted(options.items())),
+            )
+        )
+    return out
+
+
 def load_config(mode: Optional[Mode] = None) -> AppConfig:
     cfg = AppConfig()
     cfg.mode = mode or resolve_mode(_secret("FINOPS_MODE"))
@@ -128,6 +227,7 @@ def load_config(mode: Optional[Mode] = None) -> AppConfig:
     cfg.openai_model = _secret("OPENAI_MODEL", "gpt-5") or "gpt-5"
     cfg.openai_model_fast = _secret("OPENAI_MODEL_FAST", "gpt-5-mini") or "gpt-5-mini"
     cfg.database_url = _secret("DATABASE_URL")
+    cfg.accounts = _load_account_bindings()
     return cfg
 
 
@@ -143,6 +243,7 @@ class SourceInfo:
     connector: str
     cloud: str
     rows: int
+    account: str = ""  # which payer / billing account / tenant this row came from
     focus_version: str = focus.FOCUS_CANONICAL_VERSION
     fetched_at: Optional[datetime] = None
     live: bool = False

@@ -145,3 +145,52 @@ def test_agent_cards_shape():
     assert isinstance(agents.AGENT_CARDS, list) and len(agents.AGENT_CARDS) >= 5
     for card in agents.AGENT_CARDS:
         assert {"name", "domain", "capabilities", "tools", "model"} <= set(card)
+
+
+# ==========================================================================
+# Provider failures are a normal state, not a crash
+# ==========================================================================
+
+
+def test_model_access_error_names_the_secret_to_change():
+    from agents.graph import explain_failure
+    from finops_core import AppConfig
+
+    cfg = AppConfig(openai_model="gpt-5")
+    msg = explain_failure(Exception("The model `gpt-5` does not exist or you do not have access"), cfg)
+    assert "gpt-5" in msg
+    assert "OPENAI_MODEL" in msg
+    assert "reboot" in msg.lower()
+
+
+def test_quota_and_auth_errors_are_distinguished():
+    from agents.graph import explain_failure
+    from finops_core import AppConfig
+
+    cfg = AppConfig()
+    quota = explain_failure(Exception("Error code: 429 - insufficient_quota"), cfg)
+    assert "quota" in quota.lower()
+    assert "dashboard still works" in quota.lower()
+
+    auth = explain_failure(Exception("Error code: 401 - Invalid API key provided"), cfg)
+    assert "OPENAI_API_KEY" in auth
+
+
+def test_run_yields_the_explanation_instead_of_raising(monkeypatch):
+    """A provider outage must degrade to a readable message in the chat, never a
+    traceback in the user's face."""
+    import agents.graph as G
+    from connectors.demo import build_demo_dataset
+    from finops_core import AppConfig, DataContext, Mode
+
+    df, b, d = build_demo_dataset(months=6)
+    ctx = DataContext(focus_df=df, budgets=b, drivers=d, mode=Mode.DEMO, config=AppConfig())
+    cfg = AppConfig(openai_api_key="sk-test", openai_model="gpt-5")
+
+    def boom(*a, **k):
+        raise RuntimeError("Error code: 404 - The model `gpt-5` does not exist or you do not have access")
+
+    monkeypatch.setattr(G, "get_graph", boom)
+    out = "".join(G.run("why did spend rise?", cfg, ctx, thread_id="t1"))
+    assert "OPENAI_MODEL" in out
+    assert "gpt-5" in out

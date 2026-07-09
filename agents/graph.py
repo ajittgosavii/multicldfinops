@@ -254,7 +254,6 @@ def run(question: str, cfg: AppConfig, ctx: DataContext, thread_id: str, persona
         yield _NO_KEY_MESSAGE
         return
 
-    graph = get_graph(cfg, ctx)
     config = {"configurable": {"thread_id": thread_id}, "recursion_limit": 60}
     inputs: FinOpsState = {
         "messages": [HumanMessage(content=question)],
@@ -265,19 +264,61 @@ def run(question: str, cfg: AppConfig, ctx: DataContext, thread_id: str, persona
         "persona": persona,
     }
 
-    for chunk, meta in graph.stream(inputs, config, stream_mode="messages"):
-        node = (meta or {}).get("langgraph_node")
-        if node == "supervisor":
-            continue  # routing decisions are not shown to the user
-        if not isinstance(chunk, AIMessageChunk):
-            continue  # skip ToolMessages and other non-assistant traffic
-        if getattr(chunk, "tool_calls", None) or getattr(chunk, "tool_call_chunks", None):
-            continue  # skip the tool-call turns; we want the written answer only
-        text = chunk.content
-        if isinstance(text, list):
-            text = "".join(part.get("text", "") if isinstance(part, dict) else str(part) for part in text)
-        if text:
-            yield text
+    try:
+        graph = get_graph(cfg, ctx)
+        for chunk, meta in graph.stream(inputs, config, stream_mode="messages"):
+            node = (meta or {}).get("langgraph_node")
+            if node == "supervisor":
+                continue  # routing decisions are not shown to the user
+            if not isinstance(chunk, AIMessageChunk):
+                continue  # skip ToolMessages and other non-assistant traffic
+            if getattr(chunk, "tool_calls", None) or getattr(chunk, "tool_call_chunks", None):
+                continue  # skip the tool-call turns; we want the written answer only
+            text = chunk.content
+            if isinstance(text, list):
+                text = "".join(part.get("text", "") if isinstance(part, dict) else str(part) for part in text)
+            if text:
+                yield text
+    except Exception as exc:  # a provider error is a normal state, not a crash
+        yield explain_failure(exc, cfg)
+
+
+def explain_failure(exc: Exception, cfg: AppConfig) -> str:
+    """Turn a provider error into something an operator can act on.
+
+    The three that actually happen: the key has no access to the configured
+    model, the account is out of quota, or the key is wrong. All three surface
+    from OpenAI as an opaque exception and all three are fixed by editing a
+    secret -- so name which secret, rather than printing a stack trace into a
+    chat bubble.
+    """
+    text = f"{type(exc).__name__}: {exc}"
+    low = text.lower()
+
+    if "model" in low and ("not found" in low or "does not exist" in low or "access" in low):
+        return (
+            f"**This API key cannot reach `{cfg.openai_model}`.**\n\n"
+            "Set `OPENAI_MODEL` and `OPENAI_MODEL_FAST` in the app's secrets to models the key is "
+            "entitled to -- for example `gpt-4.1` and `gpt-4.1-mini` -- then reboot the app.\n\n"
+            f"Provider said: `{text[:300]}`"
+        )
+    if "insufficient_quota" in low or "quota" in low or "rate limit" in low or "429" in low:
+        return (
+            "**The OpenAI account is rate-limited or out of quota.**\n\n"
+            "Every dashboard still works; the Copilot is the only feature that needs the API.\n\n"
+            f"Provider said: `{text[:300]}`"
+        )
+    if "401" in low or "authentication" in low or "invalid api key" in low:
+        return (
+            "**The OpenAI API key was rejected.**\n\n"
+            "Check `OPENAI_API_KEY` in the app's secrets, then reboot the app.\n\n"
+            f"Provider said: `{text[:300]}`"
+        )
+    return (
+        "**The agent team could not complete that request.**\n\n"
+        "Every dashboard is unaffected; only the Copilot needs the API.\n\n"
+        f"Provider said: `{text[:400]}`"
+    )
 
 
 def run_sync(question: str, cfg: AppConfig, ctx: DataContext, thread_id: str, persona: str = "Leadership") -> str:

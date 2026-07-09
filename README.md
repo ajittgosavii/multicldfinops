@@ -253,6 +253,68 @@ module docstring leads with the one thing that will bite you.
 
 ---
 
+## Diagrams
+
+Authored once in `tools/diagrams.py`, exported as SVG (the deliverable — text stays text,
+so it is searchable and editable) and PNG (for the deck, because PowerPoint cannot embed
+SVG).
+
+| | |
+|---|---|
+| [High level design](docs/diagrams/hld.svg) | Sources → Ingest → Canonical → Analytics → Experience |
+| [End user view](docs/diagrams/end_user_view.svg) | The journey, the six FinOps personas, and where each lands |
+| [Low level design](docs/diagrams/lld.svg) | Module boundaries, the secret boundary, cached stages |
+
+```bash
+python tools/diagrams.py     # regenerate the SVG + PNG pair
+python tools/build_deck.py   # regenerate Infosys_FinOps_ConEdison.pptx
+```
+
+The client deck is generated **from the code** — every figure on it is computed at build
+time by importing the same engines the app runs, so it cannot drift from the product.
+`tests/test_diagrams.py` asserts the modules and counts the diagrams name still exist.
+
+---
+
+## Connecting multiple accounts
+
+Fewer credentials than you'd expect. One credential already spans many accounts, because
+that is how each provider aggregates billing:
+
+| Cloud | One credential covers | Lands in FOCUS as |
+|---|---|---|
+| **AWS** | Every account linked to the payer (management) account | `SubAccountId` |
+| **Azure** | Every subscription under the billing account | `SubAccountId` |
+| **GCP** | Every project the billing account pays for | `SubAccountId` |
+
+A **second** credential is needed only for a second *payer* — another AWS organization,
+another Azure tenant or billing account, another GCP billing account. A regulated utility
+usually has several, because the regulated and unregulated entities cannot share a bill.
+
+```toml
+[[accounts]]
+cloud     = "AWS"
+name      = "ConEd Regulated payer"
+connector = "aws_native"
+[accounts.secrets]
+AWS_ACCESS_KEY_ID     = "..."
+AWS_SECRET_ACCESS_KEY = "..."
+
+[[accounts]]
+cloud     = "Azure"
+name      = "Enterprise Agreement"
+connector = "azure_native"
+[accounts.options]
+scope = "providers/Microsoft.Billing/billingAccounts/1234567"
+```
+
+Bindings are pulled independently and concatenated into one FOCUS frame, where
+`BillingAccountId` keeps the payers apart. A binding that fails contributes zero rows and
+a reason; the page still renders. With no `[[accounts]]` block the behaviour is the old
+single-payer path. See `.streamlit/secrets.toml.example`.
+
+---
+
 ## Architecture
 
 ```

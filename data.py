@@ -21,7 +21,7 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 
 import focus
-from finops_core import AppConfig, DataContext, Mode, SourceInfo
+from finops_core import AccountBinding, AppConfig, DataContext, Mode, SourceInfo
 
 DEFAULT_MONTHS = 24
 
@@ -72,6 +72,7 @@ def load_demo_context(cfg: Optional[AppConfig] = None, months: int = DEFAULT_MON
                 connector="demo",
                 cloud=cloud,
                 rows=int((df["ProviderName"] == cloud).sum()),
+                account=f"{cloud} demo payer",
                 live=False,
                 note="Synthetic FOCUS 1.2 estate",
             )
@@ -108,61 +109,62 @@ def _secrets_for(prefix: str) -> Dict[str, str]:
 
 @_cache_data(ttl=_LIVE_TTL, show_spinner="Fetching live billing data...")
 def _fetch_live(
-    connector_keys: Tuple[Tuple[str, str], ...],
+    bindings: Tuple[AccountBinding, ...],
     start: date,
     end: date,
     _secrets: Dict[str, str],
 ) -> Tuple[pd.DataFrame, List[dict]]:
-    """Pull each configured cloud and concatenate.
+    """Pull every configured scope and concatenate into one FOCUS frame.
 
-    A cloud whose connector is unconfigured or failing does NOT fail the page:
-    it contributes zero rows and a source note saying why. A half-wired estate
-    should still show the clouds that are wired.
+    Each binding is a credentialed payer / billing account / tenant. One binding
+    normally already spans many accounts -- AWS Cost Explorer at the payer
+    returns every linked account, an Azure billing-account scope covers all its
+    subscriptions, a GCP billing export carries all its projects -- and those
+    arrive in `SubAccountId`. A second binding is for a second *payer*.
+
+    A binding that is unconfigured or failing does NOT fail the page: it
+    contributes zero rows and a note saying why. A half-wired estate should
+    still show the parts that are wired.
     """
     import connectors as reg
 
     frames: List[pd.DataFrame] = []
     notes: List[dict] = []
 
-    for cloud, key in connector_keys:
+    for b in bindings:
+        merged = {**_secrets, **b.secret_map}  # per-binding creds win
+        base = {"connector": b.connector, "cloud": b.cloud, "rows": 0, "live": False, "account": b.label}
+
         try:
-            conn = reg.get_connector(key, secrets=_secrets)
+            conn = reg.get_connector(b.connector, secrets=merged, **b.option_map)
         except Exception as exc:
-            notes.append({"connector": key, "cloud": cloud, "rows": 0, "live": False, "note": f"Load failed: {exc}"})
+            notes.append({**base, "note": f"Load failed: {exc}"})
             continue
 
         if not conn.configured:
-            missing = ", ".join(conn.missing_secrets())
-            notes.append(
-                {"connector": key, "cloud": cloud, "rows": 0, "live": False, "note": f"Missing secrets: {missing}"}
-            )
+            notes.append({**base, "note": f"Missing secrets: {', '.join(conn.missing_secrets())}"})
             continue
 
         probe = conn.test_connection()
         if not probe.ok:
-            notes.append({"connector": key, "cloud": cloud, "rows": 0, "live": False, "note": probe.message})
+            notes.append({**base, "note": probe.message})
             continue
 
         try:
             df = conn.fetch_costs(start, end)
         except Exception as exc:  # a live API failing is expected, not exceptional
-            notes.append({"connector": key, "cloud": cloud, "rows": 0, "live": False, "note": f"Fetch failed: {exc}"})
+            notes.append({**base, "note": f"Fetch failed: {exc}"})
             continue
 
         if len(df):
             frames.append(df)
-        notes.append(
-            {
-                "connector": key,
-                "cloud": cloud,
-                "rows": len(df),
-                "live": True,
-                "note": probe.message,
-            }
-        )
+        notes.append({**base, "rows": len(df), "live": True, "note": probe.message})
 
     if not frames:
         return focus.empty_frame(), notes
+
+    # Two payers can each report a SubAccountId, and FOCUS keeps them apart by
+    # BillingAccountId. Concatenating is therefore safe without re-keying.
     return focus.normalize(pd.concat(frames, ignore_index=True)), notes
 
 
@@ -170,8 +172,8 @@ def load_live_context(cfg: AppConfig, months: int = DEFAULT_MONTHS) -> DataConte
     end = date.today()
     start = (end.replace(day=1) - timedelta(days=30 * months)).replace(day=1)
 
-    keys = tuple(sorted(cfg.connector_for.items()))
-    df, notes = _fetch_live(keys, start, end, _secrets_for("")) if keys else (focus.empty_frame(), [])
+    bindings = tuple(cfg.bindings())
+    df, notes = _fetch_live(bindings, start, end, _secrets_for("")) if bindings else (focus.empty_frame(), [])
 
     df = focus.serialize_tags(focus.explode_tags(df if len(df) else focus.empty_frame()))
 
@@ -190,7 +192,7 @@ def load_live_context(cfg: AppConfig, months: int = DEFAULT_MONTHS) -> DataConte
 
 
 def _live_budgets(cfg: AppConfig, df: pd.DataFrame) -> pd.DataFrame:
-    """Budgets from each cloud's native Budgets API, where it exposes one.
+    """Budgets from each binding's native Budgets API, where it exposes one.
 
     An empty frame is a legitimate answer -- plenty of enterprises keep budgets
     in a planning system rather than in the cloud console. The Budget tab says
@@ -200,13 +202,13 @@ def _live_budgets(cfg: AppConfig, df: pd.DataFrame) -> pd.DataFrame:
 
     secrets = _secrets_for("")
     frames: List[pd.DataFrame] = []
-    for cloud, key in cfg.connector_for.items():
+    for b in cfg.bindings():
         try:
-            conn = reg.get_connector(key, secrets=secrets)
+            conn = reg.get_connector(b.connector, secrets={**secrets, **b.secret_map}, **b.option_map)
             if conn.configured and conn.supports(reg.Capability.BUDGETS):
-                b = conn.fetch_budgets()
-                if len(b):
-                    frames.append(b)
+                budgets = conn.fetch_budgets()
+                if len(budgets):
+                    frames.append(budgets)
         except Exception:
             continue
     if not frames:
@@ -264,6 +266,7 @@ def upload_focus_context(file, cfg: Optional[AppConfig] = None) -> DataContext:
                 connector="focus_file",
                 cloud="Uploaded",
                 rows=len(df),
+                account="Uploaded FOCUS export",
                 live=False,
                 note=probe.message,
             )

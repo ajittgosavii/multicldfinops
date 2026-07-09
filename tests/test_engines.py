@@ -209,3 +209,47 @@ def test_explode_tags_accepts_both_dicts_and_json_strings():
     )
     out = focus.explode_tags(pd.concat([base, rows], ignore_index=True))
     assert out["tag_application"].tolist() == ["CIS", "OMS", "Unallocated", "Unallocated"]
+
+
+# ==========================================================================
+# Multi-account bindings
+# ==========================================================================
+
+
+def test_bindings_default_to_one_per_cloud():
+    """With no `[[accounts]]` block, behaviour is the old single-payer path."""
+    from finops_core import AppConfig
+
+    cfg = AppConfig()
+    bindings = cfg.bindings()
+    assert {b.cloud for b in bindings} == {"AWS", "Azure", "GCP"}
+    assert [b.connector for b in bindings] == ["aws_native", "azure_native", "gcp_native"]
+
+
+def test_multiple_payers_per_cloud_are_supported():
+    """A regulated utility has more than one payer; they must not collide."""
+    from finops_core import AccountBinding, AppConfig
+
+    cfg = AppConfig(
+        accounts=[
+            AccountBinding("AWS", "aws_native", "Regulated payer", (("AWS_ACCESS_KEY_ID", "a"),)),
+            AccountBinding("AWS", "aws_native", "Unregulated payer", (("AWS_ACCESS_KEY_ID", "b"),)),
+            AccountBinding("Azure", "azure_native", "Tenant A", (), (("scope", "providers/x"),)),
+        ]
+    )
+    bindings = cfg.bindings()
+    assert len(bindings) == 3
+    assert sum(b.cloud == "AWS" for b in bindings) == 2
+    # Per-binding credentials differ, so two payers never share a key.
+    aws = [b for b in bindings if b.cloud == "AWS"]
+    assert aws[0].secret_map["AWS_ACCESS_KEY_ID"] != aws[1].secret_map["AWS_ACCESS_KEY_ID"]
+    # Options reach the connector constructor (Azure needs a scope).
+    assert bindings[2].option_map == {"scope": "providers/x"}
+
+
+def test_bindings_are_hashable_for_the_streamlit_cache():
+    """`_fetch_live` is `@st.cache_data`, so its arguments must hash."""
+    from finops_core import AccountBinding
+
+    b = AccountBinding("AWS", "aws_native", "p", (("K", "v"),), (("scope", "s"),))
+    assert hash((b,))

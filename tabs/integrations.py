@@ -144,6 +144,7 @@ def _current_sources(ctx: DataContext) -> None:
                 f'<div class="mf-tile">'
                 f'<div class="mf-label">{src.cloud}</div>'
                 f'<div class="mf-value" style="font-size:1.1rem">{src.connector}</div>'
+                f'<div class="mf-sub">{src.account or "-"}</div>'
                 f'<div class="mf-sub">{src.rows:,} rows · FOCUS {src.focus_version} {pill}</div>'
                 f'<div class="mf-sub">{src.note}</div>'
                 f"</div>",
@@ -155,6 +156,7 @@ def _current_sources(ctx: DataContext) -> None:
             {
                 "Connector": s.connector,
                 "Cloud": s.cloud,
+                "Account / payer": s.account,
                 "Rows": s.rows,
                 "Mode": "Live" if s.live else "Demo",
                 "FOCUS": s.focus_version,
