@@ -30,9 +30,13 @@ TIMEOUT = 300
 @pytest.fixture(scope="module")
 def app() -> AppTest:
     os.environ.pop("OPENAI_API_KEY", None)  # prove the Copilot tab degrades gracefully
-    os.environ.pop("APP_PASSWORD", None)  # no login gate
+    os.environ.pop("APP_PASSWORD", None)
     os.environ["FINOPS_MODE"] = "demo"
     at = AppTest.from_file(APP, default_timeout=TIMEOUT)
+    # The sign-in page is the app's front door and always renders, so the
+    # dashboard is only reachable once authenticated. `test_login.py` owns the
+    # gate itself; here we step straight through it.
+    at.session_state["authenticated"] = True
     at.run()
     return at
 

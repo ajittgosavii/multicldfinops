@@ -42,6 +42,87 @@ PROOF = [
 ]
 
 
+def hero_svg() -> str:
+    """The login page's hero: the platform's architecture, animated.
+
+    It draws the one idea -- three clouds and any procured FinOps tool collapse
+    into a single FOCUS frame, and everything downstream reads only that. Flow
+    dashes travel left to right along the paths, nodes breathe, and the FOCUS
+    box's outline draws itself once on load.
+
+    Single line, like `mark_svg`, so markdown cannot mistake it for a code block.
+    Pure CSS animation on classed elements, so `prefers-reduced-motion` stops it
+    from one place.
+    """
+    ink = "rgba(230,238,250,.72)"
+    faint = "rgba(230,238,250,.34)"
+
+    def node(x, y, w, h, label, colour, delay):
+        return (
+            f'<g class="mf-h-node" style="animation-delay:{delay}s">'
+            f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="9" fill="rgba(255,255,255,.04)" '
+            f'stroke="{colour}" stroke-width="1.4"/>'
+            f'<text x="{x + w / 2}" y="{y + h / 2 + 4}" text-anchor="middle" font-size="12.5" '
+            f'font-weight="600" fill="{ink}" font-family="system-ui,sans-serif">{label}</text></g>'
+        )
+
+    def flow(d, delay):
+        return (
+            f'<path d="{d}" fill="none" stroke="{faint}" stroke-width="1.2"/>'
+            f'<path d="{d}" fill="none" stroke="{AZURE}" stroke-width="1.6" '
+            f'class="mf-h-flow" style="animation-delay:{delay}s"/>'
+        )
+
+    parts = [
+        '<svg viewBox="0 0 560 330" class="mf-hero-svg" xmlns="http://www.w3.org/2000/svg" '
+        'role="img" aria-label="Three clouds and any FinOps tool normalise to one FOCUS frame">',
+        "<defs>",
+        f'<linearGradient id="mfhg" x1="0" y1="0" x2="560" y2="0">'
+        f'<stop offset="0%" stop-color="{AZURE}"/><stop offset="55%" stop-color="{TEAL}"/>'
+        f'<stop offset="100%" stop-color="{VIOLET}"/></linearGradient>',
+        f'<filter id="mfglow"><feGaussianBlur stdDeviation="6" result="b"/>'
+        f'<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>',
+        "</defs>",
+    ]
+
+    # Sources -> connector
+    for i, (label, colour, y) in enumerate(
+        [("AWS", AZURE, 34), ("Azure", TEAL, 130), ("GCP", VIOLET, 226)]
+    ):
+        parts.append(node(14, y, 92, 44, label, colour, i * 0.35))
+        parts.append(flow(f"M106 {y + 22} C 160 {y + 22}, 175 143, 218 143", i * 0.5))
+    parts.append(node(14, 268, 92, 40, "Any tool", faint, 1.05))
+    parts.append(flow("M106 288 C 165 288, 178 160, 218 152", 1.4))
+
+    # Connector -> FOCUS
+    parts.append(node(218, 121, 96, 44, "Connector", GLOW, 0.2))
+    parts.append(flow("M314 143 L 358 143", 0.7))
+
+    # The FOCUS frame -- the centre of gravity, so it gets the glow and the draw-on
+    parts.append(
+        '<g filter="url(#mfglow)">'
+        f'<rect x="358" y="112" width="112" height="62" rx="12" fill="rgba(79,179,245,.10)" '
+        f'stroke="url(#mfhg)" stroke-width="2" class="mf-h-draw"/></g>'
+        f'<text x="414" y="138" text-anchor="middle" font-size="13" font-weight="700" '
+        f'fill="#EAF2FF" font-family="system-ui,sans-serif">FOCUS</text>'
+        f'<text x="414" y="156" text-anchor="middle" font-size="10.5" letter-spacing="1.6" '
+        f'fill="{faint}" font-family="system-ui,sans-serif">1.2 FRAME</text>'
+    )
+
+    # FOCUS -> outputs
+    for i, (label, y) in enumerate([("KPIs", 34), ("Forecast", 118), ("Optimize", 202), ("Agents", 268)]):
+        parts.append(flow(f"M470 143 C 500 143, 500 {y + 20}, 520 {y + 20}", 0.9 + i * 0.18))
+        parts.append(
+            f'<g class="mf-h-node" style="animation-delay:{1.2 + i * 0.2}s">'
+            f'<circle cx="528" cy="{y + 20}" r="5" fill="{GLOW}"/>'
+            f'<text x="520" y="{y + 8}" text-anchor="end" font-size="11.5" fill="{ink}" '
+            f'font-family="system-ui,sans-serif">{label}</text></g>'
+        )
+
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def mark_svg(size: int = 44, spin: bool = True, uid: str = "") -> str:
     """The brand mark: a stacked diamond that slowly rotates and breathes.
 

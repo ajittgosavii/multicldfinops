@@ -158,13 +158,16 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-It opens in Demo Mode. No credentials needed.
+The sign-in page is the front door and always renders. The demo access key is
+**`cldfinops`**.
 
-**The sign-in page only appears when an `APP_PASSWORD` secret exists.** A password gate
-with no password gates nothing, so without it the app opens straight to the dashboard —
-which is the right default for local development. To see the sign-in page on an ungated
-deployment, append `?login=preview`; it renders the page and says plainly that sign-in is
-disabled. To make it a real gate, set the secret and reboot.
+That key ships in this repository, so it is a front door and not a lock: it stops a public
+URL from being a public dashboard, and nothing more. The data behind it is synthetic. Set
+an `APP_PASSWORD` secret to replace it — the demo key stops working the moment you do, and
+the disclaimer on the sign-in card disappears. The sidebar always reports which of the two
+you are running.
+
+After signing in it opens in Demo Mode. No cloud credentials needed.
 
 ---
 
@@ -174,7 +177,7 @@ disabled. To make it a real gate, set the secret and reboot.
 2. Add secrets (**Manage app → Settings → Secrets**):
 
 ```toml
-# Optional: the animated sign-in gate. Unset means no gate (local dev).
+# Replaces the demo access key `cldfinops`, which ships in the repo.
 APP_PASSWORD = "..."
 
 # Optional: AI Copilot. Without this the tab explains what it would have done.

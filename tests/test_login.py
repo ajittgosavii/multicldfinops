@@ -1,17 +1,21 @@
-"""The auth gate.
+"""The front door.
 
-The login page is mostly CSS and inline SVG, so there is little logic to test --
-but there are three things that would be embarrassing to get wrong, and all
-three are cheap to check:
+The sign-in page is the app's entry point, not a conditional guard: there is
+always a password, so the page always renders. What matters, and is cheap to
+check:
 
-* the gate must actually gate (no dashboard markup leaks before sign-in);
-* a wrong password must not authenticate, and a right one must;
+* the door must actually be shut (no dashboard markup leaks before sign-in);
+* a wrong key must not open it, a right one must;
+* an `APP_PASSWORD` secret must override the demo key;
+* the page must never let an operator believe the demo key is a security
+  boundary -- it ships in the repository;
 * the proof strip must count real things, not print a stale hard-coded number.
 """
 
 from __future__ import annotations
 
 import os
+from typing import Optional
 
 import pytest
 
@@ -19,11 +23,13 @@ pytest.importorskip("streamlit.testing.v1")
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
 APP = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py")
-PASSWORD = "finops-test-key"
+DEMO_KEY = "cldfinops"
 
 
-def _gated_app() -> AppTest:
-    os.environ["APP_PASSWORD"] = PASSWORD
+def _app(password: Optional[str] = None) -> AppTest:
+    os.environ.pop("APP_PASSWORD", None)
+    if password:
+        os.environ["APP_PASSWORD"] = password
     os.environ["FINOPS_MODE"] = "demo"
     os.environ.pop("OPENAI_API_KEY", None)
     at = AppTest.from_file(APP, default_timeout=300)
@@ -31,103 +37,96 @@ def _gated_app() -> AppTest:
     return at
 
 
-def teardown_module() -> None:
+def teardown_function() -> None:
     os.environ.pop("APP_PASSWORD", None)
 
 
-def test_gate_blocks_before_sign_in() -> None:
-    at = _gated_app()
+def _body(at: AppTest) -> str:
+    return " ".join(m.value for m in at.markdown)
+
+
+def test_the_gate_always_renders_and_hides_the_dashboard() -> None:
+    at = _app()
     assert not at.exception
-    body = " ".join(m.value for m in at.markdown)
-    assert "Infosys" in body, "brand must be present on the gate"
-    assert "Enter access password" not in body or True  # placeholder lives on the widget
-    # No dashboard content may render behind the gate.
-    assert "Executive summary" not in body
+    body = _body(at)
+    assert "Infosys" in body
+    assert "mf-hero-svg" in body, "the animated hero must render"
     assert "Total amortised spend" not in body
-    assert not at.tabs, "tabs must not render before authentication"
+    assert not at.tabs, "tabs must not render before sign-in"
 
 
-def test_wrong_password_does_not_authenticate() -> None:
-    at = _gated_app()
-    at.text_input[0].set_value("not-the-password").run()
+def test_wrong_key_does_not_open_the_door() -> None:
+    at = _app()
+    at.text_input[0].set_value("not-the-key").run()
     at.button[0].click().run()
     # AppTest's SessionState raises KeyError rather than implementing .get()
     assert "authenticated" not in at.session_state
-    assert at.error, "a wrong password must surface an error"
+    assert at.error, "a wrong key must surface an error"
+    assert "Total amortised spend" not in _body(at)
 
 
-def test_correct_password_authenticates_and_reveals_the_app() -> None:
-    at = _gated_app()
-    at.text_input[0].set_value(PASSWORD).run()
+def test_demo_key_opens_the_door() -> None:
+    at = _app()
+    at.text_input[0].set_value(DEMO_KEY).run()
     at.button[0].click().run()
     assert at.session_state["authenticated"] is True
-    body = " ".join(m.value for m in at.markdown)
-    assert "Total amortised spend" in body
+    assert "Total amortised spend" in _body(at)
     assert not at.error, [e.value for e in at.error]
 
 
-def test_no_password_secret_means_no_gate() -> None:
+def test_app_password_secret_overrides_the_demo_key() -> None:
+    # The shipped demo key must stop working the moment a real one is configured.
+    at = _app(password="a-real-secret")
+    at.text_input[0].set_value(DEMO_KEY).run()
+    at.button[0].click().run()
+    assert "authenticated" not in at.session_state
+
+    at = _app(password="a-real-secret")
+    at.text_input[0].set_value("a-real-secret").run()
+    at.button[0].click().run()
+    assert at.session_state["authenticated"] is True
+
+
+def test_demo_key_is_never_presented_as_security() -> None:
+    """It ships in a public repository. The page says so on its face."""
+    at = _app()
+    captions = " ".join(c.value for c in at.caption)
+    assert DEMO_KEY in captions
+    assert "gates nothing real" in captions
+    assert "APP_PASSWORD" in captions
+
+    # With a real secret configured, that disclaimer must disappear.
+    at = _app(password="a-real-secret")
+    captions = " ".join(c.value for c in at.caption)
+    assert DEMO_KEY not in captions
+
+
+def test_password_is_default_tracks_the_secret() -> None:
+    import ui
+
     os.environ.pop("APP_PASSWORD", None)
-    os.environ["FINOPS_MODE"] = "demo"
-    at = AppTest.from_file(APP, default_timeout=300)
-    at.run()
-    assert not at.exception
-    body = " ".join(m.value for m in at.markdown)
-    assert "Total amortised spend" in body, "local dev must not be gated"
+    assert ui.password_is_default() is True
+    os.environ["APP_PASSWORD"] = "x"
+    assert ui.password_is_default() is False
+    os.environ.pop("APP_PASSWORD", None)
 
 
 def test_proof_strip_counts_real_things() -> None:
-    """The login page advertises connector and lever counts. They must be read
-    from the code, so the marketing cannot drift away from the product."""
-    import ui
+    """The page advertises connector and lever counts. They are read from the
+    code, so the marketing cannot drift away from the product."""
     import connectors
     import optimize
+    import ui
 
     points = dict((label, n) for n, label in ui._proof_points())
     assert points["connectors"] == str(len(connectors.REGISTRY))
     assert points["levers"] == str(len(optimize.LEVERS))
 
 
-def test_preview_shows_the_gate_without_a_password() -> None:
-    """`?login=preview` renders the sign-in page on an ungated deployment so it
-    can be seen and screenshotted. It must be unmistakably a preview."""
-    os.environ.pop("APP_PASSWORD", None)
-    os.environ["FINOPS_MODE"] = "demo"
-    at = AppTest.from_file(APP, default_timeout=300)
-    at.query_params["login"] = "preview"
-    at.run()
+def test_hero_and_mark_are_single_line() -> None:
+    """Both are interpolated into indented HTML blocks. A newline would let
+    markdown render them as a code fence."""
+    import brand
 
-    assert not at.exception
-    body = " ".join(m.value for m in at.markdown)
-    assert "Preview" in body, "the card must say it is a preview"
-    assert "Total amortised spend" not in body, "dashboard must not render behind it"
-    # It offers no password field -- there is nothing to check.
-    assert not at.text_input
-
-
-def test_preview_never_pretends_to_authenticate() -> None:
-    """With no password configured the gate cannot verify anything. Continuing
-    is explicit, and the caption says sign-in is disabled."""
-    os.environ.pop("APP_PASSWORD", None)
-    at = AppTest.from_file(APP, default_timeout=300)
-    at.query_params["login"] = "preview"
-    at.run()
-
-    captions = " ".join(c.value for c in at.caption)
-    assert "sign-in is disabled" in captions
-    assert "authenticated" not in at.session_state
-
-    at.button[0].click().run()
-    assert at.session_state["authenticated"] is True
-    body = " ".join(m.value for m in at.markdown)
-    assert "Total amortised spend" in body
-
-
-def test_gate_enabled_reflects_the_secret() -> None:
-    import ui
-
-    os.environ.pop("APP_PASSWORD", None)
-    assert ui.gate_enabled() is False
-    os.environ["APP_PASSWORD"] = "x"
-    assert ui.gate_enabled() is True
-    os.environ.pop("APP_PASSWORD", None)
+    assert "\n" not in brand.hero_svg()
+    assert "\n" not in brand.mark_svg(42)

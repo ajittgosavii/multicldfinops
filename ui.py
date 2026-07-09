@@ -83,7 +83,8 @@ def _md(markup: str) -> None:
 
 
 def authenticated() -> bool:
-    return bool(st.session_state.get("authenticated")) or not _expected_password()
+    """There is always a password, so signing in is the only way past the door."""
+    return bool(st.session_state.get("authenticated"))
 
 
 # --------------------------------------------------------------------------
@@ -355,7 +356,7 @@ _LOGIN_CSS = Template(
 <style>
 /* The gate owns the whole viewport: no sidebar, no toolbar, no distraction. */
 section[data-testid="stSidebar"], header[data-testid="stHeader"] { display:none !important; }
-.block-container { padding-top: 0 !important; max-width: 100% !important; }
+.block-container { padding-top: 0 !important; max-width: 1500px !important; }
 
 .mf-bg { position:fixed; inset:0; z-index:0; overflow:hidden; background:$deep; }
 .mf-bg::after {  /* a slowly drifting technical grid */
@@ -377,7 +378,7 @@ section[data-testid="stSidebar"], header[data-testid="stHeader"] { display:none 
 /* The card is a *keyed Streamlit container* (`st-key-mf_login_card`), not a raw
    <div>. A raw div cannot wrap Streamlit widgets -- the browser closes it at the
    end of the markdown block, and the password field lands outside the glass. */
-.mf-login-pad { height: 9vh; }
+.mf-login-pad { height: 7vh; }
 div.st-key-mf_login_card {
   position:relative; z-index:2;
   padding: 2.1rem 2.1rem 1.8rem;
@@ -387,11 +388,46 @@ div.st-key-mf_login_card {
   backdrop-filter: blur(22px) saturate(140%);
   -webkit-backdrop-filter: blur(22px) saturate(140%);
   box-shadow: 0 30px 90px -30px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.14);
-  animation: mfFadeUp .8s var(--ease) both;
+  animation: mfFadeUp .8s .15s var(--ease) both;
+}
+/* A light travelling around the card's edge. Masked so only the 1px ring
+   shows the conic sweep. Browsers without @property get the static edge. */
+div.st-key-mf_login_card::before {
+  content:""; position:absolute; inset:-1px; border-radius:23px; padding:1px;
+  background: conic-gradient(from var(--mfa),
+    transparent 0deg 200deg, $azure 280deg, $glow 320deg, $violet 350deg, transparent 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: mfRotate 7s linear infinite;
+  pointer-events:none;
 }
 .mf-card-head { display:flex; align-items:center; gap:.85rem; margin-bottom:1.35rem; }
 .mf-card-head .mf-brandline { font-size:1.35rem; font-weight:700; letter-spacing:-.02em; line-height:1.1; }
 .mf-card-head .mf-productline { font-size:.7rem; letter-spacing:.17em; text-transform:uppercase; color:rgba(230,238,250,.6); margin-top:.2rem; }
+
+/* ---- Hero panel (left) ---- */
+.mf-hero { position:relative; z-index:2; padding-right:1.5rem; animation: mfFadeUp .8s var(--ease) both; }
+.mf-hero-eyebrow { font-size:.7rem; letter-spacing:.28em; text-transform:uppercase; color:rgba(230,238,250,.5); }
+.mf-hero-brand { font-size:3.1rem; font-weight:760; letter-spacing:-.035em; line-height:1; margin:.25rem 0 .3rem; }
+.mf-hero-product { font-size:1.28rem; font-weight:560; color:#EAF2FF; letter-spacing:-.015em; }
+.mf-hero-lede { font-size:.9rem; color:rgba(230,238,250,.62); margin-top:.5rem; max-width:34rem; line-height:1.6; }
+.mf-hero-svg { width:100%; max-width:560px; height:auto; margin:1.1rem 0 .4rem; overflow:visible; }
+
+.mf-h-node { animation: mfNodePulse 3.6s ease-in-out infinite; transform-origin:center; }
+@keyframes mfNodePulse { 0%,100% { opacity:.72 } 50% { opacity:1 } }
+.mf-h-flow {
+  stroke-dasharray: 5 9; stroke-linecap: round;
+  animation: mfFlow 1.5s linear infinite;
+}
+@keyframes mfFlow { to { stroke-dashoffset: -28; } }
+.mf-h-draw { stroke-dasharray: 360; animation: mfDraw 2.2s .3s var(--ease) both; }
+@keyframes mfDraw { from { stroke-dashoffset: 360 } to { stroke-dashoffset: 0 } }
+
+/* Animated conic border on the card. @property lets the angle be animated;
+   browsers without it simply get the static glass edge. */
+@property --mfa { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@keyframes mfRotate { to { --mfa: 360deg; } }
 
 .mf-claims { position:relative; height:1.35rem; margin:-.4rem 0 1.35rem; }
 .mf-claims span {
@@ -409,7 +445,7 @@ div.st-key-mf_login_card {
 
 .mf-login-label { font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:rgba(230,238,250,.55); margin-bottom:.35rem; }
 
-.mf-proof { display:flex; gap:1.4rem; margin-top:1.5rem; padding-top:1.2rem; border-top:1px solid rgba(255,255,255,.1); }
+.mf-proof { display:flex; gap:1.9rem; margin-top:1.5rem; padding-top:1.2rem; border-top:1px solid rgba(255,255,255,.1); }
 .mf-proof div { animation: mfFadeUp .7s var(--ease) both; }
 .mf-proof div:nth-child(1){animation-delay:.30s} .mf-proof div:nth-child(2){animation-delay:.38s}
 .mf-proof div:nth-child(3){animation-delay:.46s} .mf-proof div:nth-child(4){animation-delay:.54s}
@@ -435,9 +471,16 @@ div.st-key-mf_login_card {
 )
 
 
-def _expected_password() -> Optional[str]:
-    """Streamlit secrets first, then the environment.
+# The demo password. It ships in the repository, so it is a front door, not a
+# lock -- it keeps a public URL from being a public dashboard, and nothing more.
+# The data behind it is synthetic. Any real deployment must set `APP_PASSWORD`.
+DEMO_PASSWORD = "cldfinops"
 
+
+def _expected_password() -> str:
+    """Streamlit secrets first, then the environment, then the demo default.
+
+    Always returns something, so the sign-in page is always the front door.
     Secrets are the Streamlit Cloud path; the env var makes the gate reachable
     from a test and from a container that injects config rather than files.
     """
@@ -448,7 +491,12 @@ def _expected_password() -> Optional[str]:
         pass
     import os
 
-    return os.environ.get("APP_PASSWORD") or None
+    return os.environ.get("APP_PASSWORD") or DEMO_PASSWORD
+
+
+def password_is_default() -> bool:
+    """True when nobody configured a password. The sidebar says so out loud."""
+    return _expected_password() == DEMO_PASSWORD
 
 
 def _proof_points() -> List[Tuple[str, str]]:
@@ -492,42 +540,20 @@ def _sparks(n: int = 16) -> str:
     return "".join(out)
 
 
-def gate_enabled() -> bool:
-    return bool(_expected_password())
-
-
-def _preview_requested() -> bool:
-    """`?login=preview` renders the gate with no password configured.
-
-    A password gate cannot gate anything when there is no password, so this
-    never authenticates -- it exists so the sign-in page can be seen and
-    screenshotted on an ungated deployment. The card says so on its face rather
-    than implying a security boundary that is not there.
-    """
-    try:
-        return st.query_params.get("login") == "preview"
-    except Exception:
-        return False
-
-
 def require_login() -> bool:
-    """Password gate. Returns True when the app may render.
+    """The front door. Returns True only once the visitor has signed in.
 
-    With no `APP_PASSWORD` secret there is nothing to check, so the gate is open
-    -- that is the local-development path, and it is why the sign-in page does
-    not appear on a Streamlit Cloud app whose secret was never set. Add
-    `APP_PASSWORD` to the app's secrets and reboot.
+    The sign-in page always renders -- it is the app's entry point, not a
+    conditional guard. `_expected_password` always yields something: the
+    `APP_PASSWORD` secret if one is set, otherwise `DEMO_PASSWORD`, which ships
+    in the repository and therefore protects nothing but a synthetic demo.
     """
     expected = _expected_password()
-    preview = not expected and _preview_requested()
-
-    if not expected and not preview:
-        return True
     if st.session_state.get("authenticated"):
         return True
 
     claims = brand.ROTATING_CLAIMS
-    cycle = len(claims) * 4  # each claim visible ~4s of the loop
+    cycle = len(claims) * 4  # each claim is visible for ~4s of the loop
 
     st.markdown(
         _LOGIN_CSS.substitute(
@@ -555,43 +581,51 @@ def require_login() -> bool:
     proof = "".join(f'<div><div class="n">{n}</div><div class="l">{l}</div></div>' for n, l in _proof_points())
 
     _md('<div class="mf-login-pad"></div>')
-    _, mid, _ = st.columns([1, 1.15, 1])
-    with mid:
+
+    hero, _gap, card = st.columns([1.15, 0.08, 0.86], gap="large")
+
+    with hero:
+        _md(
+            f'<div class="mf-hero">'
+            f'<div class="mf-hero-eyebrow">{brand.BRAND}</div>'
+            f'<div class="mf-hero-brand mf-wordmark">FinOps</div>'
+            f'<div class="mf-hero-product">{brand.PRODUCT}</div>'
+            f'<div class="mf-hero-lede">{brand.TAGLINE}</div>'
+            f"{brand.hero_svg()}"
+            f'<div class="mf-claims">{claim_spans}</div>'
+            f'<div class="mf-proof">{proof}</div>'
+            f"</div>"
+        )
+
+    with card:
         with st.container(key="mf_login_card"):
-            label = "Preview — no access key configured" if preview else "Access key"
             _md(
                 f'<div class="mf-card-head">{brand.mark_svg(46, uid="login")}'
-                f'<div><div class="mf-brandline mf-wordmark">{brand.BRAND}</div>'
-                f'<div class="mf-productline">{brand.PRODUCT}</div></div></div>'
-                f'<div class="mf-claims">{claim_spans}</div>'
-                f'<div class="mf-login-label">{label}</div>'
+                f'<div><div class="mf-brandline mf-wordmark">Sign in</div>'
+                f'<div class="mf-productline">Command Center</div></div></div>'
+                f'<div class="mf-login-label">Access key</div>'
             )
 
-            if preview:
-                # No password exists, so nothing can be verified. Say so, and let
-                # the viewer through -- pretending otherwise would be theatre.
+            with st.form("mf_login_form", border=False):
+                pw = st.text_input(
+                    "Password",
+                    type="password",
+                    label_visibility="collapsed",
+                    placeholder="Enter access password",
+                )
+                signed_in = st.form_submit_button(
+                    "Enter Command Center", type="primary", width="stretch"
+                )
+
+            if password_is_default():
+                # Never let an operator believe this is a security boundary.
                 st.caption(
-                    "This deployment has no `APP_PASSWORD` secret, so sign-in is "
-                    "disabled and this page is a preview. Set the secret and reboot "
-                    "to make it a real gate."
+                    f"Demo access key: `{DEMO_PASSWORD}`. It ships in the repository, so it "
+                    "gates nothing real -- the data behind it is synthetic. Set the "
+                    "`APP_PASSWORD` secret to replace it."
                 )
-                if st.button("Continue to the Command Center", type="primary", width="stretch"):
-                    st.session_state["authenticated"] = True
-                    st.rerun()
-                _md(
-                    f'<div class="mf-proof">{proof}</div>'
-                    f'<div class="mf-foot">{brand.BRAND} · FOCUS 1.2 conformant · '
-                    f"Demo data contains no customer information</div>"
-                )
-                return False
-
-            pw = st.text_input(
-                "Password", type="password", label_visibility="collapsed", placeholder="Enter access password"
-            )
-            signed_in = st.button("Enter Command Center", type="primary", width="stretch")
 
             _md(
-                f'<div class="mf-proof">{proof}</div>'
                 f'<div class="mf-foot">{brand.BRAND} · FOCUS 1.2 conformant · '
                 f"Demo data contains no customer information</div>"
             )
@@ -599,12 +633,12 @@ def require_login() -> bool:
             if signed_in:
                 if hmac.compare_digest(
                     hashlib.sha256(pw.encode()).hexdigest(),
-                    hashlib.sha256(str(expected).encode()).hexdigest(),
+                    hashlib.sha256(expected.encode()).hexdigest(),
                 ):
                     st.session_state["authenticated"] = True
                     st.rerun()
                 else:
-                    st.error("Incorrect password.")
+                    st.error("Incorrect access key.")
 
     return False
 

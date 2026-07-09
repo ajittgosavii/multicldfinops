@@ -85,12 +85,12 @@ def _sidebar() -> tuple[AppConfig, dict]:
         st.divider()
         st.caption(f"Organisation: **{cfg.organisation}**")
         st.caption(f"AI Copilot: {'enabled' if cfg.ai_enabled else 'set OPENAI_API_KEY to enable'}")
-        # A gate with no password gates nothing. Say so, rather than letting an
-        # operator assume the app is protected because a sign-in page exists.
-        if ui.gate_enabled():
-            st.caption("Sign-in: enabled")
+        # A password that ships in the repository is a front door, not a lock.
+        # Say so, rather than letting an operator assume the app is protected.
+        if ui.password_is_default():
+            st.caption("Sign-in: **demo key** — set `APP_PASSWORD` to secure")
         else:
-            st.caption("Sign-in: **open** — set `APP_PASSWORD` to gate. [Preview](?login=preview)")
+            st.caption("Sign-in: password set")
 
     return cfg, {}
 
