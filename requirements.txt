@@ -1,0 +1,62 @@
+# ---------------------------------------------------------------------------
+# Multi-Cloud FinOps Command Center
+#
+# Demo Mode runs on this file alone -- no cloud SDK, no API key, no network.
+# Live Mode additionally needs whichever cloud extras you actually use; those
+# are listed at the bottom and are imported lazily, so a connector you never
+# configure never costs you an install.
+# ---------------------------------------------------------------------------
+
+# --- Core app ---------------------------------------------------------------
+streamlit>=1.40,<2
+pandas>=2.2,<3
+numpy>=1.26,<3
+plotly>=5.24,<7
+
+# --- Forecasting / anomaly detection ---------------------------------------
+# Holt-Winters (ExponentialSmoothing), SARIMAX and STL decomposition.
+# forecast.py and anomaly.py degrade gracefully if this is absent, but the
+# ensemble and the seasonal-residual detector both want it.
+statsmodels>=0.14,<1
+scipy>=1.11,<2
+
+# --- AI Copilot (OpenAI + LangGraph) ---------------------------------------
+# LangGraph 1.x. The 1.0 release moved several imports
+# (langgraph.checkpoint.memory, langgraph.types, langgraph.config) -- pinning
+# the major line keeps agents/graph.py honest.
+langgraph>=1.2,<2
+langchain-openai>=1.3,<2
+langchain-core>=1.4,<2
+openai>=2.26,<3
+pydantic>=2.7,<3
+
+# --- HTTP for the vendor connectors ----------------------------------------
+requests>=2.32,<3
+
+# --- Columnar IO (FOCUS exports are Parquet) --------------------------------
+pyarrow>=16,<21
+
+# --- Durable state (optional; SQLite is the fallback) -----------------------
+psycopg[binary]>=3.1,<4
+
+# ---------------------------------------------------------------------------
+# Live Mode extras -- install only what you connect. Every import is lazy.
+#
+#   AWS    (Cost Explorer, Data Exports/FOCUS, Cost Optimization Hub)
+#     boto3>=1.34
+#     s3fs>=2024.6            # to read a FOCUS export straight from S3
+#
+#   Azure  (Cost Management query/forecast/exports; uses plain REST)
+#     azure-storage-blob>=12.19   # only to read a FocusCost export from Blob
+#     adlfs>=2024.4
+#
+#   GCP    (BigQuery billing export, Recommender, Budgets)
+#     google-cloud-bigquery>=3.25
+#     google-auth>=2.30
+#     gcsfs>=2024.6
+#
+#   Kubernetes allocation (Kubecost / OpenCost) needs nothing extra -- REST.
+# ---------------------------------------------------------------------------
+
+# --- Tests ------------------------------------------------------------------
+pytest>=8.0,<9

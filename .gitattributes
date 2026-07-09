@@ -1,0 +1,8 @@
+# Normalise to LF in the repository. Streamlit Cloud runs on Linux; a CRLF
+# checkout from a Windows dev box otherwise shows every file as modified.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.parquet binary
+*.db binary

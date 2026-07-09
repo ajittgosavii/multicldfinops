@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Byte-compile every module
+        run: python -m compileall -q .
+
+      - name: Connector registry resolves with no cloud SDKs installed
+        # Demo Mode must run on requirements.txt alone. If a connector imports
+        # boto3 at module scope this step fails, which is the point.
+        run: |
+          python - <<'PY'
+          import connectors
+          specs = connectors.specs()
+          keys = {s.key for s in specs}
+          missing = set(connectors.REGISTRY) - keys
+          assert not missing, f"connectors failed to load: {sorted(missing)}"
+          for s in specs:
+              c = connectors.get_connector(s.key, secrets={})
+              r = c.test_connection()          # must never raise
+              assert isinstance(r.ok, bool)
+          print(f"{len(specs)} connectors resolved")
+          PY
+
+      - name: Demo estate is FOCUS conformant
+        run: |
+          python - <<'PY'
+          import focus
+          from connectors.demo import build_demo_dataset
+          df, budgets, drivers = build_demo_dataset(months=12)
+          v = focus.validate(df)
+          assert v.ok, v.errors
+          assert len(df) > 10_000 and len(budgets) and len(drivers)
+          print(v.summary())
+          PY
+
+      - name: Agent layer imports without an API key
+        env:
+          OPENAI_API_KEY: ""
+        run: python -c "import agents; print('agents import ok')"
+
+      - name: pytest
+        run: python -m pytest -q
