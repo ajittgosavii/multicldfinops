@@ -34,7 +34,11 @@ pydantic>=2.7,<3
 requests>=2.32,<3
 
 # --- Columnar IO (FOCUS exports are Parquet) --------------------------------
-pyarrow>=16,<21
+# Floor is 22, not 16: 22.0.0 is the first release shipping a cp314 wheel, and
+# Streamlit Cloud builds on Python 3.14. Cap an older version here and uv falls
+# back to an sdist, tries to compile Arrow C++ from source, and the deploy dies.
+# 22+ still ships cp310-cp313 wheels, so this floor costs nothing on 3.10-3.13.
+pyarrow>=22,<25
 
 # --- Durable state (optional; SQLite is the fallback) -----------------------
 psycopg[binary]>=3.1,<4

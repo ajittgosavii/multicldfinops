@@ -197,6 +197,12 @@ GCP_BILLING_ACCOUNT_ID = "01A2B3-C4D5E6-F70819"
 **Reboot the app after each push.** Streamlit Cloud reruns `app.py` but often keeps stale
 submodules in `sys.modules`.
 
+**Python 3.14.** Streamlit Cloud installs with `uv` on Python 3.14. Any pin that excludes
+every version of a compiled package shipping a `cp314` wheel makes `uv` fall back to an
+sdist and try to compile it from source, which fails the deploy — `pyarrow` is the one
+that bites, and its floor here is `22` for exactly that reason. CI runs
+`uv pip compile --no-build` across 3.11–3.14 so this cannot regress silently.
+
 Live Mode extras (`boto3`, `google-cloud-bigquery`, `s3fs`, …) are commented at the
 bottom of `requirements.txt`. Every SDK import is lazy, so uncomment only the clouds you
 actually connect.

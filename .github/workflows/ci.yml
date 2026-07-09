@@ -7,12 +7,29 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Streamlit Community Cloud installs with `uv` and builds on Python 3.14.
+  # If a pin excludes every version of a compiled package that ships a cp314
+  # wheel, uv silently falls back to an sdist and tries to compile it from
+  # source -- which is how a deploy dies on pyarrow after CI was green.
+  # `--no-build` reproduces that failure here instead of in production.
+  resolve:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Every dependency must resolve to a prebuilt wheel
+        run: uv pip compile requirements.txt --python-version ${{ matrix.python-version }} --no-build -o /dev/null
+
   test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
