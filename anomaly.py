@@ -143,6 +143,8 @@ def detect(
     method: str = "stl_mad",
     threshold: float = 3.5,
     min_history_days: int = 10,
+    min_deviation_pct: float = 25.0,
+    min_cost: float = 0.0,
 ) -> pd.DataFrame:
     """Annotate a single spend series with anomaly scores.
 
@@ -151,6 +153,22 @@ def detect(
     `deviation_pct` attached, so a chart can draw the band and mark the flags in
     one pass. Below `min_history_days` nothing is flagged -- the AWS warm-up
     rule -- because a dispersion estimate from a handful of points is noise.
+
+    A point is an anomaly only if it is BOTH statistically odd and financially
+    material:
+
+        |modified z| > threshold          AND      |deviation| >= min_deviation_pct
+
+    The statistical test alone is not enough. In a low-variance series the MAD
+    collapses toward zero, so a 5% wobble scores a z of 6 and gets flagged. That
+    is how this detector once returned 347 "anomalies" on a 24-month estate, 318
+    of which it simultaneously graded `severity == "good"` -- the two signals
+    were computed from different quantities and contradicted each other. An
+    alert nobody can act on is worse than no alert: it trains people to ignore
+    the channel.
+
+    `min_cost` additionally suppresses a doubling of a $3/day service, which is
+    a 100% deviation and still not worth a VP's attention.
     """
     cols = ["period", "cost", "expected", "residual", "score", "is_anomaly", "severity", "deviation_pct"]
     if series is None or not len(series):
@@ -192,7 +210,12 @@ def detect(
         deviation_pct = (y - expected) / safe_expected * 100.0
     deviation_pct = np.nan_to_num(deviation_pct, nan=0.0, posinf=0.0, neginf=0.0)
 
-    is_anomaly = np.abs(score) > threshold
+    # Statistically odd AND financially material. Either alone produces noise.
+    is_anomaly = (
+        (np.abs(score) > threshold)
+        & (np.abs(deviation_pct) >= min_deviation_pct)
+        & (y >= min_cost)
+    )
     severity = np.where(is_anomaly, [_severity(d) for d in deviation_pct], "good")
 
     s = s.assign(

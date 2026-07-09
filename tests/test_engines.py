@@ -253,3 +253,34 @@ def test_bindings_are_hashable_for_the_streamlit_cache():
 
     b = AccountBinding("AWS", "aws_native", "p", (("K", "v"),), (("scope", "s"),))
     assert hash((b,))
+
+
+def test_an_anomaly_must_be_both_odd_and_material(estate):
+    """`is_anomaly` and `severity` must agree.
+
+    The MAD test alone flags any wobble in a low-variance series -- the scale
+    collapses toward zero, so a 5% move scores a z of 6. That produced 347
+    "anomalies" on this estate, 318 of them simultaneously graded `good`. A
+    flagged row graded `good` is a contradiction, and an alert nobody can act on
+    trains people to ignore the channel.
+    """
+    df = estate[0]
+    hits = anomaly.detect_by_dimension(df, dim="ServiceCategory")
+
+    assert not hits.empty
+    assert (hits["severity"] != "good").all(), "a flagged row may never be graded 'good'"
+    assert (hits["deviation_pct"].abs() >= 25.0).all(), "every anomaly must be materially deviant"
+    assert len(hits) < 60, f"{len(hits)} anomalies is noise, not signal"
+
+    # The two deliberately planted spikes must still surface, as critical.
+    critical = hits[hits["severity"] == "critical"]
+    cats = set(critical["ServiceCategory"])
+    assert {"Analytics", "Networking"} <= cats, f"planted spikes missing; got {cats}"
+
+
+def test_min_deviation_pct_is_tunable(estate):
+    df = estate[0]
+    strict = anomaly.detect_by_dimension(df, dim="ServiceCategory", min_deviation_pct=100.0)
+    loose = anomaly.detect_by_dimension(df, dim="ServiceCategory", min_deviation_pct=10.0)
+    assert len(strict) < len(loose)
+    assert (strict["severity"] == "critical").all()
