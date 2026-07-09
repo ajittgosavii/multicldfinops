@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import re
 from string import Template
 from typing import Iterable, List, Optional, Sequence, Tuple
 
@@ -42,6 +43,9 @@ from theme import STATUS, STATUS_ICON
 
 APP_NAME = brand.PRODUCT
 APP_TAGLINE = brand.TAGLINE
+
+# Any run of whitespace spanning a newline. Used to flatten HTML blocks.
+_WS = re.compile(r"\s*\n\s*")
 
 
 # --------------------------------------------------------------------------
@@ -60,6 +64,22 @@ def page_config() -> None:
 
 def mode() -> str:
     return st.session_state.get("colour_mode", theme.DEFAULT_MODE)
+
+
+def _html(markup: str) -> str:
+    """Collapse an HTML block to a single line before handing it to markdown.
+
+    `st.markdown` dedents by the block's *common* leading whitespace. Interpolate
+    anything with its own indentation -- an SVG, a nested component -- and the
+    common prefix collapses, leaving lines indented four or more spaces. Markdown
+    then renders them as an indented code block, and the page prints its own
+    source. One line has no indentation to misread.
+    """
+    return _WS.sub(" ", markup).strip()
+
+
+def _md(markup: str) -> None:
+    st.markdown(_html(markup), unsafe_allow_html=True)
 
 
 def authenticated() -> bool:
@@ -499,16 +519,12 @@ def require_login() -> bool:
         unsafe_allow_html=True,
     )
 
-    st.markdown(
-        f"""
-        <div class="mf-bg">
-          <div class="mf-orb mf-orb-1"></div>
-          <div class="mf-orb mf-orb-2"></div>
-          <div class="mf-orb mf-orb-3"></div>
-          {_sparks()}
-        </div>
-        """,
-        unsafe_allow_html=True,
+    _md(
+        '<div class="mf-bg">'
+        '<div class="mf-orb mf-orb-1"></div>'
+        '<div class="mf-orb mf-orb-2"></div>'
+        '<div class="mf-orb mf-orb-3"></div>'
+        f"{_sparks()}</div>"
     )
 
     claim_spans = "".join(
@@ -516,23 +532,16 @@ def require_login() -> bool:
     )
     proof = "".join(f'<div><div class="n">{n}</div><div class="l">{l}</div></div>' for n, l in _proof_points())
 
-    st.markdown('<div class="mf-login-pad"></div>', unsafe_allow_html=True)
+    _md('<div class="mf-login-pad"></div>')
     _, mid, _ = st.columns([1, 1.15, 1])
     with mid:
         with st.container(key="mf_login_card"):
-            st.markdown(
-                f"""
-                <div class="mf-card-head">
-                  {brand.mark_svg(46)}
-                  <div>
-                    <div class="mf-brandline mf-wordmark">{brand.BRAND}</div>
-                    <div class="mf-productline">{brand.PRODUCT}</div>
-                  </div>
-                </div>
-                <div class="mf-claims">{claim_spans}</div>
-                <div class="mf-login-label">Access key</div>
-                """,
-                unsafe_allow_html=True,
+            _md(
+                f'<div class="mf-card-head">{brand.mark_svg(46, uid="login")}'
+                f'<div><div class="mf-brandline mf-wordmark">{brand.BRAND}</div>'
+                f'<div class="mf-productline">{brand.PRODUCT}</div></div></div>'
+                f'<div class="mf-claims">{claim_spans}</div>'
+                f'<div class="mf-login-label">Access key</div>'
             )
 
             pw = st.text_input(
@@ -540,11 +549,10 @@ def require_login() -> bool:
             )
             signed_in = st.button("Enter Command Center", type="primary", width="stretch")
 
-            st.markdown(
+            _md(
                 f'<div class="mf-proof">{proof}</div>'
                 f'<div class="mf-foot">{brand.BRAND} · FOCUS 1.2 conformant · '
-                f"Demo data contains no customer information</div>",
-                unsafe_allow_html=True,
+                f"Demo data contains no customer information</div>"
             )
 
             if signed_in:
@@ -566,41 +574,26 @@ def require_login() -> bool:
 
 
 def sidebar_brand() -> None:
-    st.markdown(
-        f"""
-        <div class="mf-side-brand">{brand.mark_svg(26)}
-          <span class="mf-wordmark">{brand.BRAND}</span>
-        </div>
-        <div class="mf-side-sub">Command Center</div>
-        """,
-        unsafe_allow_html=True,
+    _md(
+        f'<div class="mf-side-brand">{brand.mark_svg(26, uid="side")}'
+        f'<span class="mf-wordmark">{brand.BRAND}</span></div>'
+        f'<div class="mf-side-sub">Command Center</div>'
     )
 
 
 def masthead(subtitle: str = APP_TAGLINE, right_html: str = "") -> None:
-    st.markdown(
-        f"""
-        <div class="mf-masthead">
-          <div style="display:flex;align-items:center;gap:.95rem;">
-            {brand.mark_svg(42)}
-            <div>
-              <p class="mf-eyebrow">{brand.BRAND}</p>
-              <h1>{APP_NAME}</h1>
-              <p>{subtitle}</p>
-            </div>
-          </div>
-          <div style="text-align:right;">{right_html}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    _md(
+        f'<div class="mf-masthead">'
+        f'<div style="display:flex;align-items:center;gap:.95rem;">'
+        f'{brand.mark_svg(42, uid="head")}'
+        f'<div><p class="mf-eyebrow">{brand.BRAND}</p>'
+        f"<h1>{APP_NAME}</h1><p>{subtitle}</p></div></div>"
+        f'<div style="text-align:right;">{right_html}</div></div>'
     )
 
 
 def section(title: str, note: str = "") -> None:
-    st.markdown(
-        f'<div class="mf-section"><h3>{title}</h3>' + (f"<p>{note}</p>" if note else "") + "</div>",
-        unsafe_allow_html=True,
-    )
+    _md(f'<div class="mf-section"><h3>{title}</h3>' + (f"<p>{note}</p>" if note else "") + "</div>")
 
 
 def _delta_html(delta_pct: Optional[float], good_when: str = "down") -> str:
@@ -633,16 +626,12 @@ def tile(
             f'<span class="mf-pill{crit}" style="color:{STATUS[status]}">'
             f"{STATUS_ICON[status]} {status.title()}</span>"
         )
-    st.markdown(
-        f"""
-        <div class="mf-tile{rail}">
-          <div class="mf-label">{label}</div>
-          <div class="mf-value">{value}</div>
-          {_delta_html(delta_pct, good_when)}
-          <div class="mf-sub">{sub} {badge}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    _md(
+        f'<div class="mf-tile{rail}">'
+        f'<div class="mf-label">{label}</div>'
+        f'<div class="mf-value">{value}</div>'
+        f"{_delta_html(delta_pct, good_when)}"
+        f'<div class="mf-sub">{sub} {badge}</div></div>'
     )
 
 
@@ -689,12 +678,12 @@ def _md_inline(text: str) -> str:
 
 
 def callout(markdown_text: str) -> None:
-    st.markdown(f'<div class="mf-callout">{_md_inline(markdown_text)}</div>', unsafe_allow_html=True)
+    _md(f'<div class="mf-callout">{_md_inline(markdown_text)}</div>')
 
 
 def legend(entries: Iterable[tuple]) -> None:
     """An explicit legend row. Present whenever >= 2 series are drawn."""
-    st.markdown(" ".join(pill(label, colour) for label, colour in entries), unsafe_allow_html=True)
+    _md(" ".join(pill(label, colour) for label, colour in entries))
 
 
 def table_view(df, key: str, label: str = "Table view") -> None:

@@ -33,6 +33,7 @@ Changelog: https://focus.finops.org/changelog/
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set
 
@@ -527,6 +528,13 @@ def explode_tags(df: pd.DataFrame, prefix: str = "tag_") -> pd.DataFrame:
         return out
 
     def _row(tags) -> Dict[str, str]:
+        # FOCUS models Tags as a map. Providers emit it as a JSON object or as a
+        # JSON string depending on the export format, so accept both.
+        if isinstance(tags, str):
+            try:
+                tags = json.loads(tags)
+            except (ValueError, TypeError):
+                return {}
         found: Dict[str, str] = {}
         if isinstance(tags, dict):
             for k, v in tags.items():
@@ -539,6 +547,29 @@ def explode_tags(df: pd.DataFrame, prefix: str = "tag_") -> pd.DataFrame:
     for t in CANONICAL_TAGS:
         vals = extracted.apply(lambda d, t=t: d.get(t))
         out[f"{prefix}{t}"] = vals.fillna("Unallocated")
+    return out
+
+
+def serialize_tags(df: pd.DataFrame) -> pd.DataFrame:
+    """Store `Tags` as a JSON string rather than a dict.
+
+    The spec calls Tags a map and notes it is rendered as String or JSON
+    depending on the emitter, so both are conformant. A string is the better
+    in-memory choice for us:
+
+    * `st.cache_data` hashes DataFrame arguments with `hash_pandas_object`,
+      which raises `TypeError: unhashable type: 'dict'` on a dict column.
+      Streamlit catches it, logs a full traceback, and falls back to pickling --
+      once per cached call, on every rerun.
+    * Arrow cannot serialise a dict column whose value types vary, which is what
+      an arbitrary vendor's FOCUS export looks like.
+
+    Call this AFTER `explode_tags`, which is where the tags become queryable.
+    """
+    if "Tags" not in df.columns:
+        return df
+    out = df.copy()
+    out["Tags"] = out["Tags"].map(lambda v: v if isinstance(v, str) else json.dumps(v or {}))
     return out
 
 

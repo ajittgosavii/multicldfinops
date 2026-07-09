@@ -69,3 +69,48 @@ def test_executive_kpis_rendered(app: AppTest) -> None:
 def test_demo_mode_is_the_default(app: AppTest) -> None:
     body = " ".join(m.value for m in app.markdown)
     assert "DEMO" in body
+
+
+def test_no_html_renders_as_an_indented_code_block(app: AppTest) -> None:
+    """`st.markdown` dedents by the block's *common* leading whitespace.
+
+    Interpolate anything carrying its own indentation -- an inline SVG, a nested
+    component -- and the common prefix collapses, leaving lines indented four or
+    more spaces. Markdown then renders them as a code block and the page prints
+    its own source, which is exactly what the masthead once did.
+
+    This checks the strings the app actually emitted, after interpolation, which
+    is the only place the bug is visible.
+    """
+    import re
+    import textwrap
+
+    offenders = []
+    for m in app.markdown:
+        value = m.value
+        if "<" not in value:
+            continue
+        for line in textwrap.dedent(value).splitlines():
+            if re.match(r"^\s{4,}<", line):
+                offenders.append(line.strip()[:70])
+                break
+
+    assert not offenders, "HTML would render as a code block:\n" + "\n".join(offenders)
+
+
+def test_brand_mark_is_a_single_line(app: AppTest) -> None:
+    """The mark is interpolated into indented HTML blocks. One line means there
+    is no indentation for markdown to misread."""
+    import brand
+
+    assert "\n" not in brand.mark_svg(42)
+
+
+def test_brand_marks_do_not_share_gradient_ids(app: AppTest) -> None:
+    """Two SVGs on one page with the same gradient id make the second reuse the
+    first's gradient."""
+    import brand
+
+    a = brand.mark_svg(42, uid="head")
+    b = brand.mark_svg(26, uid="side")
+    assert 'id="mfg1head"' in a and 'id="mfg1side"' in b

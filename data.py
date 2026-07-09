@@ -173,10 +173,7 @@ def load_live_context(cfg: AppConfig, months: int = DEFAULT_MONTHS) -> DataConte
     keys = tuple(sorted(cfg.connector_for.items()))
     df, notes = _fetch_live(keys, start, end, _secrets_for("")) if keys else (focus.empty_frame(), [])
 
-    if len(df):
-        df = focus.explode_tags(df)
-    else:
-        df = focus.explode_tags(focus.empty_frame())
+    df = focus.serialize_tags(focus.explode_tags(df if len(df) else focus.empty_frame()))
 
     budgets = _live_budgets(cfg, df)
     drivers = _live_drivers(df)
@@ -254,7 +251,7 @@ def upload_focus_context(file, cfg: Optional[AppConfig] = None) -> DataContext:
     probe = conn.test_connection()
     df = conn.fetch_costs(date(1970, 1, 1), date.today())
     if len(df):
-        df = focus.explode_tags(df)
+        df = focus.serialize_tags(focus.explode_tags(df))
 
     return DataContext(
         focus_df=df,

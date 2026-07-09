@@ -171,3 +171,41 @@ def test_fixed_percentage_policy_validates(estate):
     assert bad.validate()  # sums to 90, must flag
     good = allocation.SharedCostPolicy(method="fixed_percentage", fixed_percentages={"A": 60, "B": 40})
     assert not good.validate()
+
+
+# ==========================================================================
+# Tags representation
+# ==========================================================================
+
+
+def test_tags_are_json_strings_not_dicts(estate):
+    """FOCUS calls Tags a map, rendered as String or JSON depending on the
+    emitter -- both conformant. We store the string because a dict column makes
+    `st.cache_data` fail `hash_pandas_object` and fall back to pickling on every
+    rerun, and makes Arrow refuse the frame outright."""
+    import json
+
+    import pandas as pd
+    from pandas.core.util.hashing import hash_pandas_object
+
+    df = estate[0]
+    assert not df["Tags"].map(lambda v: isinstance(v, dict)).any()
+    # Round-trips back to a mapping.
+    assert isinstance(json.loads(df["Tags"].iloc[0]), dict)
+    # The fast cache-hash path works, i.e. no pickle fallback.
+    hash_pandas_object(df.sample(500, random_state=0))
+
+
+def test_explode_tags_accepts_both_dicts_and_json_strings():
+    import pandas as pd
+
+    import focus
+
+    base = focus.empty_frame()
+    rows = pd.DataFrame(
+        {
+            "Tags": [{"application": "CIS"}, '{"application": "OMS"}', None, "not json"],
+        }
+    )
+    out = focus.explode_tags(pd.concat([base, rows], ignore_index=True))
+    assert out["tag_application"].tolist() == ["CIS", "OMS", "Unallocated", "Unallocated"]

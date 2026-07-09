@@ -847,4 +847,5 @@ def build_demo_dataset(months: int = DEFAULT_MONTHS, seed: int = SEED, end: Opti
     df = focus.explode_tags(gen.build())
     for t in focus.CANONICAL_TAGS:
         df[f"tag_{t}"] = df[f"tag_{t}"].astype("category")
+    df = focus.serialize_tags(df)
     return df, generate_budgets(df, seed), generate_drivers(df, seed)

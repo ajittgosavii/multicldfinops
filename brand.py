@@ -42,34 +42,37 @@ PROOF = [
 ]
 
 
-def mark_svg(size: int = 44, spin: bool = True) -> str:
+def mark_svg(size: int = 44, spin: bool = True, uid: str = "") -> str:
     """The brand mark: a stacked diamond that slowly rotates and breathes.
+
+    Returned as a SINGLE LINE, deliberately. `st.markdown` dedents a block by its
+    *common* leading whitespace, so interpolating a multi-line, differently
+    indented SVG into an HTML block leaves the surviving lines indented four or
+    more spaces -- and markdown renders those as a code fence. The masthead
+    printed its own source once. Never again: no newlines, no indentation.
+
+    `uid` namespaces the gradient ids. Two marks on one page sharing an id would
+    make the second reuse the first's gradient.
 
     SMIL is avoided -- CSS keyframes on the group let `prefers-reduced-motion`
     switch the whole thing off from one place.
     """
     cls = "mf-mark-spin" if spin else ""
-    return f"""
-    <svg width="{size}" height="{size}" viewBox="0 0 64 64" fill="none"
-         xmlns="http://www.w3.org/2000/svg" class="mf-mark-svg" aria-hidden="true">
-      <defs>
-        <linearGradient id="mfg1" x1="0" y1="0" x2="64" y2="64">
-          <stop offset="0%" stop-color="{GLOW}"/>
-          <stop offset="55%" stop-color="{AZURE}"/>
-          <stop offset="100%" stop-color="{VIOLET}"/>
-        </linearGradient>
-        <linearGradient id="mfg2" x1="64" y1="0" x2="0" y2="64">
-          <stop offset="0%" stop-color="{TEAL}"/>
-          <stop offset="100%" stop-color="{AZURE}"/>
-        </linearGradient>
-      </defs>
-      <g class="{cls}" style="transform-origin:32px 32px">
-        <rect x="32" y="4" width="28" height="28" rx="4"
-              transform="rotate(45 32 4)" stroke="url(#mfg1)" stroke-width="2.5"/>
-        <rect x="32" y="18" width="18" height="18" rx="3"
-              transform="rotate(45 32 18)" stroke="url(#mfg2)" stroke-width="2"
-              opacity="0.85"/>
-      </g>
-      <circle cx="32" cy="32" r="3.2" fill="{GLOW}" class="mf-mark-core"/>
-    </svg>
-    """
+    g1, g2 = f"mfg1{uid}", f"mfg2{uid}"
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 64 64" fill="none" '
+        f'xmlns="http://www.w3.org/2000/svg" class="mf-mark-svg" aria-hidden="true">'
+        f'<defs><linearGradient id="{g1}" x1="0" y1="0" x2="64" y2="64">'
+        f'<stop offset="0%" stop-color="{GLOW}"/>'
+        f'<stop offset="55%" stop-color="{AZURE}"/>'
+        f'<stop offset="100%" stop-color="{VIOLET}"/></linearGradient>'
+        f'<linearGradient id="{g2}" x1="64" y1="0" x2="0" y2="64">'
+        f'<stop offset="0%" stop-color="{TEAL}"/>'
+        f'<stop offset="100%" stop-color="{AZURE}"/></linearGradient></defs>'
+        f'<g class="{cls}" style="transform-origin:32px 32px">'
+        f'<rect x="32" y="4" width="28" height="28" rx="4" transform="rotate(45 32 4)" '
+        f'stroke="url(#{g1})" stroke-width="2.5"/>'
+        f'<rect x="32" y="18" width="18" height="18" rx="3" transform="rotate(45 32 18)" '
+        f'stroke="url(#{g2})" stroke-width="2" opacity="0.85"/></g>'
+        f'<circle cx="32" cy="32" r="3.2" fill="{GLOW}" class="mf-mark-core"/></svg>'
+    )
